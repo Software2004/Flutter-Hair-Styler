@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../platform/image_picker.dart';
+
 import '../data/style_data_provider.dart';
 import '../models/models.dart';
 import '../theme/app_styles.dart';
@@ -393,28 +395,21 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
                       return Padding(
                         padding: const EdgeInsets.all(16),
-                        child: SingleChildScrollView(
+                        child: GridView.builder(
+                          shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            children: [
-                              GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      childAspectRatio: 0.8,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
-                                    ),
-                                itemCount: matchingCategory.styles.length,
-                                itemBuilder: (context, index) {
-                                  final item = matchingCategory!.styles[index];
-                                  return _buildStyleCard(item);
-                                },
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.8,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
                               ),
-                            ],
-                          ),
+                          itemCount: matchingCategory.styles.length,
+                          itemBuilder: (context, index) {
+                            final item = matchingCategory!.styles[index];
+                            return _buildStyleCard(item);
+                          },
                         ),
                       );
                     }).toList(),
@@ -609,28 +604,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     });
 
     try {
-      if (!Platform.isLinux) {
-        final granted = await _ensurePermission([
-          Permission.photos,
-          Permission.storage,
-        ]);
-
-        if (!granted) {
-          setState(() {
-            _isPickingImage = false;
-          });
-          return;
-        }
-      }
-
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1024,
-        maxHeight: 1024,
-      );
-
+      final XFile? image = await PlatformImagePicker.pickImageFromGallery();
+      
       if (!mounted) return;
 
       setState(() {
@@ -677,25 +652,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     });
 
     try {
-      if (!Platform.isLinux) {
-        final granted = await _ensurePermission([Permission.camera]);
-
-        if (!granted) {
-          setState(() {
-            _isPickingImage = false;
-          });
-          return;
-        }
-      }
-
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1024,
-        maxHeight: 1024,
-      );
-
+      final XFile? image = await PlatformImagePicker.pickImageFromCamera();
+      
       if (!mounted) return;
 
       setState(() {
@@ -733,66 +691,4 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     }
   }
 
-  Future<bool> _ensurePermission(List<Permission> permissions) async {
-    if (Platform.isLinux) return true;
-
-    List<String> permanentlyDeniedPermissions = [];
-    List<String> deniedPermissions = [];
-    bool allActuallyGranted = true;
-
-    for (final p in permissions) {
-      PermissionStatus status = await p.status;
-      String permissionName = p.toString().split('.').last;
-      String permissionFriendlyName =
-          permissionName[0].toUpperCase() + permissionName.substring(1);
-
-      if (status.isGranted || status.isLimited) {
-        continue;
-      }
-
-      if (status.isPermanentlyDenied) {
-        permanentlyDeniedPermissions.add(permissionFriendlyName);
-        allActuallyGranted = false;
-        continue;
-      }
-
-      PermissionStatus newStatus = await p.request();
-
-      if (newStatus.isGranted || newStatus.isLimited) {
-        continue;
-      } else if (newStatus.isPermanentlyDenied) {
-        permanentlyDeniedPermissions.add(permissionFriendlyName);
-        allActuallyGranted = false;
-      } else {
-        deniedPermissions.add(permissionFriendlyName);
-        allActuallyGranted = false;
-      }
-    }
-
-    if (!allActuallyGranted && mounted) {
-      String message = '';
-      if (permanentlyDeniedPermissions.isNotEmpty) {
-        message =
-            '${permanentlyDeniedPermissions.join(', ')} permission(s) are permanently denied. Please enable in app settings.';
-      } else if (deniedPermissions.isNotEmpty) {
-        message = '${deniedPermissions.join(', ')} permission(s) were denied.';
-      }
-
-      if (message.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-
-      if (permanentlyDeniedPermissions.isNotEmpty) {
-        await Future.delayed(const Duration(milliseconds: 1500));
-        await openAppSettings();
-      }
-    }
-
-    return allActuallyGranted;
-  }
 }

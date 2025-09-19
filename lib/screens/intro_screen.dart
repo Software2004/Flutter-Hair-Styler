@@ -19,20 +19,33 @@ class IntroScreen extends StatefulWidget {
   State<IntroScreen> createState() => _IntroScreenState();
 }
 
-class _IntroScreenState extends State<IntroScreen> {
+class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin {
   late final PageController _pageController;
+  late final AnimationController _rotationController;
+  late final Animation<double> _rotationAnimation;
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
   double _transitionDarkness = 0.0;
-  XFile? _pickedImage;
-  bool _isPickingImage = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
     _pageController.addListener(_handlePageScroll);
+    
+    // Initialize rotation animation
+    _rotationController = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    );
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 2 * math.pi,
+    ).animate(_rotationController);
+    
+    _rotationController.repeat();
+    
     _loadAssetsAndPlay();
   }
 
@@ -132,54 +145,6 @@ class _IntroScreenState extends State<IntroScreen> {
     }
   }
 
-  Future<void> _pickImageFromGallery() async {
-    if (!mounted || _isPickingImage) return;
-
-    setState(() {
-      _isPickingImage = true;
-    });
-
-    try {
-      final XFile? image = await PlatformImagePicker.pickImageFromGallery();
-      
-      if (!mounted) return;
-
-      setState(() {
-        _isPickingImage = false;
-        if (image != null) {
-          _pickedImage = image;
-          debugPrint('Image picked from gallery: ${image.path}');
-          
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image loaded successfully!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } else {
-          debugPrint('No image selected from gallery');
-        }
-      });
-    } catch (e) {
-      debugPrint('Error picking image from gallery: $e');
-      if (mounted) {
-        setState(() {
-          _isPickingImage = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error accessing gallery: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _agreeAndContinue() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_intro', true);
@@ -190,6 +155,7 @@ class _IntroScreenState extends State<IntroScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
@@ -226,18 +192,24 @@ class _IntroScreenState extends State<IntroScreen> {
                     key: ValueKey<int>(index),
                     children: [
                       // Main image
-                      Container(
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: AssetImage(_images[index]),
-                            fit: BoxFit.cover,
-                            colorFilter: ColorFilter.mode(
-                              Colors.black.withOpacity(0.2),
-                              BlendMode.darken,
+                      RotationTransition(
+                        turns: _rotationAnimation,
+                        child: Transform.rotate(
+                          angle: math.pi, // 180-degree rotation
+                          child: Container(
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: AssetImage(_images[index]),
+                                fit: BoxFit.cover,
+                                colorFilter: ColorFilter.mode(
+                                  Colors.black.withOpacity(0.2),
+                                  BlendMode.darken,
+                                ),
+                                onError: (error, stackTrace) {
+                                  print('Error loading image ${_images[index]}: $error');
+                                },
+                              ),
                             ),
-                            onError: (error, stackTrace) {
-                              print('Error loading image ${_images[index]}: $error');
-                            },
                           ),
                         ),
                       ),
@@ -322,20 +294,10 @@ class _IntroScreenState extends State<IntroScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  if (_isPickingImage)
-                    const Center(child: CircularProgressIndicator(color: Colors.white))
-                  else
-                    PrimaryButton(
-                        label: 'Upload Image',
-                        icon: Icons.file_upload_outlined,
-                        onPressed: _pickImageFromGallery
-                    ),
-                  const SizedBox(height: 16),
-                  if (!_isPickingImage)
-                    PrimaryButton(
-                        label: 'Agree & Continue',
-                        onPressed: _agreeAndContinue
-                    ),
+                  PrimaryButton(
+                      label: 'Agree & Continue',
+                      onPressed: _agreeAndContinue
+                  ),
                 ],
               ),
             ),
