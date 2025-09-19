@@ -393,19 +393,27 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
                       return Padding(
                         padding: const EdgeInsets.all(16),
-                        child: GridView.builder(
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.8,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.8,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                    ),
+                                itemCount: matchingCategory.styles.length,
+                                itemBuilder: (context, index) {
+                                  final item = matchingCategory!.styles[index];
+                                  return _buildStyleCard(item);
+                                },
                               ),
-                          itemCount: matchingCategory.styles.length,
-                          itemBuilder: (context, index) {
-                            final item = matchingCategory!.styles[index];
-                            return _buildStyleCard(item);
-                          },
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -504,7 +512,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
   Widget _buildStyleCard(StyleItem item) {
     return Card(
-      elevation: 4,
+      elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
