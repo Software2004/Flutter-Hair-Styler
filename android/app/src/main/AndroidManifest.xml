@@ -6,6 +6,13 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
+    <!-- Internet permission (if you need to upload images) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Network state (optional, for checking connectivity) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+
     <application
         android:label="flutter_hair_styler"
         android:name="${applicationName}"

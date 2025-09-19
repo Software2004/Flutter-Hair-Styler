@@ -19,6 +19,7 @@ class AppColors {
   static const Color textDark = Color(0xFFF5F5F5);
   static const Color success = Color(0xFF2ECC71);
   static const Color error = Color(0xFFE74C3C);
+
 }
 
 ThemeData buildLightTheme(FontBuilder font) {

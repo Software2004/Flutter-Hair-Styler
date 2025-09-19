@@ -1,6 +1,7 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hair_styler/screens/privacy_policy_screen.dart';
+import 'package:flutter_hair_styler/screens/subscription_plan.dart';
 import 'package:flutter_hair_styler/screens/terms_of_service_screen.dart';
 import 'package:flutter_hair_styler/widgets/primary_button.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -149,7 +150,14 @@ class _AccountScreenState extends State<AccountScreen> {
             PrimaryButton(
               label: "Manage Subscription",
               icon: Icons.diamond_outlined,
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ManageSubscriptionScreen(),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(

@@ -16,9 +16,9 @@ class IntroScreen extends StatefulWidget {
 
 class _IntroScreenState extends State<IntroScreen> {
   late final PageController _pageController;
-  List<String> _images = const [];
-
+  List<String> _images = [];
   int _current = 0;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -31,30 +31,64 @@ class _IntroScreenState extends State<IntroScreen> {
     try {
       final manifestContent = await DefaultAssetBundle.of(context).loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = jsonDecode(manifestContent) as Map<String, dynamic>;
+
+      // Filter for .webp files in the hairstyles directory
       final candidates = manifestMap.keys
-          .where((k) => k.startsWith('assets/images/hairstyles/'))
+          .where((k) => k.startsWith('assets/images/hairstyles/') && k.endsWith('.webp'))
           .toList();
+
+      print('Found ${candidates.length} hairstyle images: $candidates'); // Debug log
+
       if (candidates.isNotEmpty) {
-        _images = candidates;
+        setState(() {
+          _images = candidates;
+          _isLoading = false;
+        });
+
+        // Start auto-play after a short delay to ensure UI is ready
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          _autoPlay();
+        }
+      } else {
+        print('No hairstyle images found in assets'); // Debug log
+        setState(() {
+          _isLoading = false;
+        });
       }
-    } catch (_) {}
-    if (!mounted) return;
-    setState(() {});
-    if (_images.isNotEmpty) {
-      _autoPlay();
+    } catch (e) {
+      print('Error loading assets: $e'); // Debug log
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _autoPlay() async {
+    if (_images.isEmpty) return;
+
     while (mounted && _images.isNotEmpty) {
       await Future.delayed(const Duration(seconds: 4));
-      _current = (_current + 1) % _images.length;
       if (!mounted) return;
-      _pageController.animateToPage(
-        _current,
-        duration: const Duration(milliseconds: 1200),
-        curve: Curves.easeInOut,
-      );
+
+      final nextIndex = (_current + 1) % _images.length;
+
+      try {
+        await _pageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 1200),
+          curve: Curves.easeInOut,
+        );
+
+        if (mounted) {
+          setState(() {
+            _current = nextIndex;
+          });
+        }
+      } catch (e) {
+        print('Error animating to page: $e');
+        break;
+      }
     }
   }
 
@@ -74,29 +108,82 @@ class _IntroScreenState extends State<IntroScreen> {
   @override
   Widget build(BuildContext context) {
     const onDark = Colors.white;
+
     return Scaffold(
       body: Stack(
         children: [
+          // Background images
           if (_images.isNotEmpty)
             PageView.builder(
               controller: _pageController,
               itemCount: _images.length,
-              itemBuilder: (_, index) => AnimatedSwitcher(
-                duration: const Duration(milliseconds: 800),
-                child: Container(
-                  key: ValueKey(_images[index]),
+              onPageChanged: (index) {
+                setState(() {
+                  _current = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Container(
                   decoration: BoxDecoration(
                     image: DecorationImage(
                       image: AssetImage(_images[index]),
                       fit: BoxFit.cover,
+                      onError: (error, stackTrace) {
+                        print('Error loading image ${_images[index]}: $error');
+                      },
+                    ),
+                  ),
+                );
+              },
+            )
+          else if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            )
+          else
+          // Fallback background if no images are found
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF6B73FF),
+                    Color(0xFF9D4EDD),
+                  ],
+                ),
+              ),
+            ),
+
+          // Dark overlay
+          Container(color: Colors.black.withOpacity(0.45)),
+
+          // Page indicators (optional - shows which image is currently displayed)
+          if (_images.length > 1)
+            Positioned(
+              top: 60,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _images.length,
+                      (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _current == index
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.4),
                     ),
                   ),
                 ),
               ),
-            )
-          else
-            const SizedBox.shrink(),
-          Container(color: Colors.black.withOpacity(0.45)),
+            ),
+
+          // Content overlay
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -124,12 +211,17 @@ class _IntroScreenState extends State<IntroScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Your photos are processed securely by AI and never stored.',
-                      style: const TextStyle(fontSize: 16, color: onDark)
-                          .copyWith(color: onDark.withOpacity(0.9)),
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: onDark.withOpacity(0.9)
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  PrimaryButton(label: 'Agree & Continue', onPressed: _agreeAndContinue),
+                  PrimaryButton(
+                      label: 'Agree & Continue',
+                      onPressed: _agreeAndContinue
+                  ),
                 ],
               ),
             ),
@@ -139,5 +231,3 @@ class _IntroScreenState extends State<IntroScreen> {
     );
   }
 }
-
-

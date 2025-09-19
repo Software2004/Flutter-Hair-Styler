@@ -1,0 +1,5 @@
+1. intro activity animation images error
+icons with the tab items
+3. data displayihng for the selected tab
+4. pick image not working.
+5. change the logo of the app in splash and home

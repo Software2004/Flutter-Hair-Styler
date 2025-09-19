@@ -34,41 +34,64 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Scaffold(
       body: pages[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        labelTextStyle: MaterialStateProperty.resolveWith(
-          (states) => Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            overflow: TextOverflow.ellipsis,
-            height: 1.1,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
           ),
+          // Optional: Add a subtle shadow
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        height: 65,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (i) => setState(() => _currentIndex = i),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent, // Make inner nav bar transparent
+          elevation: 0,
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          showUnselectedLabels: true,
+          selectedLabelStyle:
+          Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.5,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome),
-            label: 'AI Recommend',
-            tooltip: 'AI Recommendation',
+          unselectedLabelStyle:
+          Theme.of(context).textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w400,
+            height: 1.5,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.folder_open_outlined),
-            selectedIcon: Icon(Icons.folder),
-            label: 'My Styles',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Account',
-          ),
-        ],
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.auto_awesome_outlined),
+              activeIcon: Icon(Icons.auto_awesome),
+              label: 'AI Recommendations',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.folder_open_outlined),
+              activeIcon: Icon(Icons.folder),
+              label: 'My Styles',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Account',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -99,10 +122,19 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     'Male Kids',
     'Female Kids',
   ];
+
+  final List<IconData> _categoryIcons = const [
+    Icons.male,
+    Icons.female,
+    Icons.boy,
+    Icons.girl,
+  ];
+
   late final TabController _tabController;
   List<StyleCategory> _categoriesData = const [];
   bool _loading = true;
   XFile? _pickedImage;
+  bool _isPickingImage = false; // Add loading state for image picking
 
   @override
   void initState() {
@@ -115,12 +147,31 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   }
 
   Future<void> _loadAssets() async {
-    final data = await StyleDataProvider.getStyleCategories();
-    if (!mounted) return;
-    setState(() {
-      _categoriesData = data;
-      _loading = false;
-    });
+    try {
+      final data = await StyleDataProvider.getStyleCategories();
+      if (!mounted) return;
+
+      // Debug logging
+      debugPrint('Loaded ${data.length} categories');
+      for (var category in data) {
+        debugPrint('Category: ${category.name} has ${category.styles.length} styles');
+        if (category.styles.isNotEmpty) {
+          debugPrint('First style: ${category.styles.first.name} - ${category.styles.first.assetPath}');
+        }
+      }
+
+      setState(() {
+        _categoriesData = data;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading assets: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -193,21 +244,29 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           'Upload your photo or take a new one to discover amazing hairstyles.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.7),
-                              ),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.7),
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
                       const SizedBox(height: 32),
-                      PrimaryButton(
+                      // Fixed Upload Photo button
+                      _isPickingImage
+                          ? const Center(
+                        child: CircularProgressIndicator(),
+                      )
+                          : PrimaryButton(
                         label: 'Upload Photo',
-                        icon: Icons.upload_rounded,
+                        icon: Icons.file_upload_outlined,
                         onPressed: _pickFromGallery,
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
+                      const SizedBox(height: 16),
+                      // Fixed Camera button
+                      _isPickingImage
+                          ? Container()
+                          : OutlinedButton.icon(
                         onPressed: _pickFromCamera,
                         icon: const Icon(Icons.photo_camera_outlined),
                         label: const Text('Open Camera'),
@@ -226,10 +285,10 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           "AI-generated previews showing how you'd look",
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.7),
-                              ),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.7),
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -253,53 +312,131 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         width: 3.0,
                       ),
                     ),
-                    indicatorSize: TabBarIndicatorSize.label,
-                    tabs: _categories.map((c) => Tab(text: c)).toList(),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    tabs: List.generate(_categories.length, (index) {
+                      return Tab(
+                        child: Row(
+                          children: [
+                            Icon(_categoryIcons[index], size: 20),
+                            const SizedBox(width: 8),
+                            Text(_categories[index]),
+                          ],
+                        ),
+                      );
+                    }),
                   ),
                 ),
               ),
             if (_pickedImage == null)
-              SliverFillRemaining(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: _categories.map((c) {
-                    if (_loading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final cat = _categoriesData.firstWhere(
-                      (e) => e.name == c,
-                      orElse: () => const StyleCategory(name: '', styles: []),
-                    );
-                    final items = cat.styles;
-                    if (items.isEmpty) {
-                      return const Center(child: Text('No styles available'));
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: ListView.separated(
-                        itemCount: items.length,
-                        itemBuilder: (_, i) => PreviewListItem(
-                          imageAsset: items[i].assetPath,
-                          title: items[i].name,
-                          onTap: () {},
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6, // Fixed height for TabBarView
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: _categories.map((categoryName) {
+                      if (_loading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      // Find the matching category data
+                      StyleCategory? matchingCategory;
+                      for (var cat in _categoriesData) {
+                        if (cat.name.toLowerCase() == categoryName.toLowerCase()) {
+                          matchingCategory = cat;
+                          break;
+                        }
+                      }
+
+                      if (matchingCategory == null || matchingCategory.styles.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.content_cut,
+                                size: 64,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No styles available for $categoryName',
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: GridView.builder(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.8,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          itemCount: matchingCategory.styles.length,
+                          itemBuilder: (context, index) {
+                            final item = matchingCategory!.styles[index];
+                            return _buildStyleCard(item);
+                          },
                         ),
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
+            // Display picked image
             if (_pickedImage != null)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Stack(
                   children: [
+                    // Display the picked image
                     Positioned.fill(
                       child: Image.file(
                         File(_pickedImage!.path),
                         fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey[300],
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Colors.grey[600],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Error loading image',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
+                    // Back button
+                    Positioned(
+                      top: 20,
+                      left: 16,
+                      child: _circleIcon(
+                        context,
+                        Icons.arrow_back_rounded,
+                        onPressed: () {
+                          setState(() {
+                            _pickedImage = null;
+                          });
+                        },
+                      ),
+                    ),
+                    // Action buttons
                     Positioned(
                       top: 20,
                       right: 16,
@@ -313,6 +450,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
+                    // Rotation buttons
                     Positioned(
                       bottom: 110,
                       left: 0,
@@ -325,6 +463,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
+                    // Main action button
                     Positioned(
                       bottom: 24,
                       left: 20,
@@ -332,7 +471,10 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       child: PrimaryButton(
                         label: 'Change Hairstyle',
                         icon: Icons.auto_awesome_rounded,
-                        onPressed: () {},
+                        onPressed: () {
+                          // Handle hairstyle change
+                          debugPrint('Change hairstyle pressed');
+                        },
                       ),
                     ),
                   ],
@@ -344,7 +486,76 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget _circleIcon(BuildContext context, IconData icon) {
+  Widget _buildStyleCard(StyleItem item) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: () {
+          // Handle style selection
+          debugPrint('Selected style: ${item.name}');
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  child: Image.asset(
+                    item.assetPath,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                          size: 48,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Center(
+                  child: Text(
+                    item.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _circleIcon(BuildContext context, IconData icon, {VoidCallback? onPressed}) {
     return Container(
       width: 44,
       height: 44,
@@ -354,7 +565,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       ),
       child: IconButton(
         icon: Icon(icon, color: Colors.white),
-        onPressed: () {
+        onPressed: onPressed ?? () {
           debugPrint('Pressed $icon');
         },
       ),
@@ -362,51 +573,111 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   }
 
   Future<void> _pickFromGallery() async {
-    if (!mounted) return;
-    
+    if (!mounted || _isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
     try {
+      // Check permissions first (except on Linux)
       if (!Platform.isLinux) {
         final granted = await _ensurePermission([
           Permission.photos,
           Permission.storage,
         ]);
-        if (!granted || !mounted) return;
+
+        if (!granted) {
+          setState(() {
+            _isPickingImage = false;
+          });
+          return;
+        }
       }
 
       final picker = ImagePicker();
       final image = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 90,
+        imageQuality: 85, // Slightly lower quality for better performance
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
-      if (image != null && mounted) setState(() => _pickedImage = image);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isPickingImage = false;
+        if (image != null) {
+          _pickedImage = image;
+          debugPrint('Image picked from gallery: ${image.path}');
+        }
+      });
     } catch (e) {
+      debugPrint('Error picking image from gallery: $e');
       if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error accessing gallery: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error accessing gallery: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
   }
 
   Future<void> _pickFromCamera() async {
-    if (!mounted) return;
-    
+    if (!mounted || _isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
     try {
+      // Check camera permission (except on Linux)
       if (!Platform.isLinux) {
         final granted = await _ensurePermission([Permission.camera]);
-        if (!granted || !mounted) return;
+
+        if (!granted) {
+          setState(() {
+            _isPickingImage = false;
+          });
+          return;
+        }
       }
 
       final picker = ImagePicker();
       final image = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 90,
+        imageQuality: 85, // Slightly lower quality for better performance
+        maxWidth: 1024,
+        maxHeight: 1024,
       );
-      if (image != null && mounted) setState(() => _pickedImage = image);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isPickingImage = false;
+        if (image != null) {
+          _pickedImage = image;
+          debugPrint('Image taken from camera: ${image.path}');
+        }
+      });
     } catch (e) {
+      debugPrint('Error taking photo with camera: $e');
       if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error accessing camera: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error accessing camera: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -415,6 +686,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   Future<bool> _ensurePermission(List<Permission> permissions) async {
     // Skip permission check on Linux
     if (Platform.isLinux) return true;
+
     List<String> permanentlyDeniedPermissions = [];
     List<String> deniedPermissions = [];
     bool allActuallyGranted = true;
@@ -455,15 +727,19 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       String message = '';
       if (permanentlyDeniedPermissions.isNotEmpty) {
         message =
-            '${permanentlyDeniedPermissions.join(', ')} permission(s) are permanently denied. Please enable in app settings.';
+        '${permanentlyDeniedPermissions.join(', ')} permission(s) are permanently denied. Please enable in app settings.';
       } else if (deniedPermissions.isNotEmpty) {
         message = '${deniedPermissions.join(', ')} permission(s) were denied.';
       }
 
       if (message.isNotEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
 
       if (permanentlyDeniedPermissions.isNotEmpty) {
@@ -472,6 +748,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         await openAppSettings();
       }
     }
+
     return allActuallyGranted;
   }
 }
