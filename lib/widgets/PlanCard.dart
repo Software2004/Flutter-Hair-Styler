@@ -21,11 +21,10 @@ class PlanCard extends StatelessWidget {
 
     final Color backgroundColor = isSelected
         ? colorScheme.primary.withOpacity(0.08)
-        : Theme.of(context).cardColor;
-    final BoxBorder border = Border.all(
-      color: isSelected ? colorScheme.primary : Theme.of(context).dividerColor,
-      width: isSelected ? 1.5 : 1,
-    );
+        : Theme.of(context).colorScheme.surface; // Changed for unselected
+    final BoxBorder border = isSelected
+        ? Border.all(color: colorScheme.primary, width: 1.5)
+        : Border.all(color: Colors.transparent, width: 0); // Changed for unselected
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),

@@ -243,7 +243,7 @@ class _IntroScreenState extends State<IntroScreen> {
                   const Spacer(),
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: Icon(Icons.shield_outlined, color: onDark, size: 36),
+                    child: Icon(Icons.lightbulb_outline, color: onDark, size: 36),
                   ),
                   const SizedBox(height: 12),
                   const Align(
@@ -251,7 +251,7 @@ class _IntroScreenState extends State<IntroScreen> {
                     child: Text(
                       'Transform Your Look',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: onDark,
                       ),

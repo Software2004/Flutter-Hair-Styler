@@ -51,7 +51,7 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
             const SizedBox(height: 32),
@@ -88,7 +88,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _InfoCard(
               title: 'Subscription',
               trailing: Text(
@@ -96,7 +96,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(height: 24),
+            // const SizedBox(height: ),
             ListView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -159,7 +159,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () {
                 // TODO: Navigate to AuthScreen
@@ -196,13 +196,13 @@ class _InfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        // boxShadow: [
+        //   BoxShadow(
+        //     color: Colors.black.withOpacity(0.05),
+        //     blurRadius: 10,
+        //     offset: const Offset(0, 2),
+        //   ),
+        // ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

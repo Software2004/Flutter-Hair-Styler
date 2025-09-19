@@ -69,8 +69,19 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Upgrade Plan'),surfaceTintColor: Colors.transparent,),
+      appBar: AppBar(
+        title: Text(
+          'Upgrade Plan',
+          style: textTheme.titleLarge?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w300, // Further reduced weight
+          ),
+        ),
+        surfaceTintColor: Colors.transparent,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -94,7 +105,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
               ? 'Upgrade to Pro'
               : 'Continue',
           onPressed: () {
-            _selectedProductId != null ? _handleUpgrade : null;
+            _selectedProductId != null ? _handleUpgrade() : null; 
           },
         ),
       ),
@@ -103,17 +114,25 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
 
   Widget _buildCurrentPlanCard(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surface, 
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        border: Border.all(color: Colors.transparent, width: 0), 
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Current Plan', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Current Plan',
+            style: textTheme.titleMedium?.copyWith(
+              fontSize: (textTheme.titleMedium?.fontSize ?? 16) - 4,
+              fontWeight: FontWeight.w500, // Further reduced weight
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -123,8 +142,10 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
                   children: [
                     Text(
                       _currentTierLabel,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w500, // Further reduced weight
+                        fontSize: (textTheme.headlineSmall?.fontSize ?? 24) - 4,
+                      ),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -132,9 +153,10 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
               ),
               Text(
                 '$_currentCredits Credits',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.primary,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w500, // Further reduced weight
+                  fontSize: (textTheme.titleMedium?.fontSize ?? 16) - 4,
                 ),
               ),
             ],
@@ -166,7 +188,9 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
           const SizedBox(height: 12),
           Text(
             'You have $_currentCredits of $_monthlyCreditsCap credits remaining this month.\nSign up for unlimited access!',
-            style: Theme.of(context).textTheme.bodySmall,
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: (textTheme.bodySmall?.fontSize ?? 12) - 2,
+            ),
           ),
         ],
       ),
@@ -174,14 +198,16 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
   }
 
   Widget _buildSubscriptionTiers(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Subscription Tiers',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w500, // Further reduced weight
+            fontSize: (textTheme.titleLarge?.fontSize ?? 22) - 4,
+          ),
         ),
         const SizedBox(height: 12),
         Column(
@@ -203,19 +229,23 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
   }
 
   Widget _buildCreditPacks(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Credit Packs',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w500, // Further reduced weight
+            fontSize: (textTheme.titleLarge?.fontSize ?? 22) - 4,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
           'One-time purchase for extra styles.',
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: textTheme.bodyMedium?.copyWith(
+            fontSize: (textTheme.bodyMedium?.fontSize ?? 14) - 2,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(

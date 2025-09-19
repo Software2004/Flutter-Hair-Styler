@@ -28,7 +28,13 @@ class PrimaryButton extends StatelessWidget {
             ],
           );
 
-    final button = ElevatedButton(onPressed: onPressed, child: child);
+    final button = ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+      ),
+      child: child,
+    );
     if (!expanded) return button;
     return SizedBox(width: double.infinity, height: 52, child: button);
   }
