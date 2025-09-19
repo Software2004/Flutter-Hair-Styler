@@ -1,5 +1,4 @@
 
-import 'dart:typed_data'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:image_gallery_saver/image_gallery_saver.dart'; 
@@ -16,7 +15,7 @@ class MyStylesScreen extends StatefulWidget {
 }
 
 class _MyStylesScreenState extends State<MyStylesScreen> {
-  List<SavedStyle> _savedStyles = [
+  final List<SavedStyle> _savedStyles = [
     SavedStyle(
       id: '1',
       imagePath: 'assets/images/hairstyles/afro_female.webp',
@@ -142,73 +141,37 @@ Widget build(BuildContext context) {
   // final double childAspectRatio = (screenWidth > 600.0) ? 0.75 : 0.70;
   const double childAspectRatio = 0.70; // Keeping it constant for now
 
-  // Estimate height for the "Saved Styles" title (headlineSmall)
-  final double headlineStyleFontSize = textTheme.headlineSmall?.fontSize ?? 24.0;
-  final double headlineStyleHeight = textTheme.headlineSmall?.height ?? 1.3;
-  final double expandedTitleHeightEstimate = headlineStyleFontSize * headlineStyleHeight;
-
-  // Estimate height for the subheading (bodyMedium)
-  final double bodyMediumStyleFontSize = textTheme.bodyMedium?.fontSize ?? 14.0;
-  final double bodyMediumStyleHeight = textTheme.bodyMedium?.height ?? 1.2;
-  final double subheadingHeightEstimate = bodyMediumStyleFontSize * bodyMediumStyleHeight;
-
-  const double spacingBetweenTitleAndSubheading = 8.0;
-  const double bottomMargin = 16.0; // General bottom margin for the content block
-
-  // Calculate the bottom padding needed for the main title to make space for the subheading
-  final double titleBottomPaddingForSubheading = bottomMargin + subheadingHeightEstimate + spacingBetweenTitleAndSubheading;
-
-  final double expandedAppBarHeight = (MediaQuery.of(context).padding.top / 2) + 
-                                    kToolbarHeight + 
-                                    expandedTitleHeightEstimate + 
-                                    spacingBetweenTitleAndSubheading +
-                                    subheadingHeightEstimate + 
-                                    bottomMargin + 
-                                    16.0; 
-
   return Scaffold(
-    body: CustomScrollView(
-      slivers: <Widget>[
-        SliverAppBar(
-          pinned: false,
-          floating: true,
-          expandedHeight: expandedAppBarHeight,
-          centerTitle: false, 
-          flexibleSpace: FlexibleSpaceBar(
-            titlePadding: EdgeInsetsDirectional.only(
-              start: 16.0,
-              bottom: titleBottomPaddingForSubheading, 
-            ),
-            centerTitle: false, 
-            title: Text(
-              'Saved Styles',
-              style: textTheme.headlineSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
+    appBar: AppBar( // Using a standard AppBar
+      title: Text(
+        'Saved Styles',
+        style: textTheme.headlineSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+      centerTitle: false,
+      foregroundColor: Colors.white,
+    ),
+    body: Padding( // Add padding around the body content
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: CustomScrollView(
+        slivers: <Widget>[
+          SliverToBoxAdapter( // Use SliverToBoxAdapter for non-sliver widgets
+            child: Padding(
+              padding: const EdgeInsets.only( bottom: 8.0), // Adjust padding as needed
+              child: Text(
+                'So many great looks! Tap any style to see it in full view or make changes.',
+                textAlign: TextAlign.left,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            background: Stack(
-              fit: StackFit.expand, 
-              children: <Widget>[
-                Positioned(
-                  left: 16.0,
-                  right: 16.0, 
-                  bottom: bottomMargin, 
-                  child: Text(
-                    'So many great looks! Tap any style to see it in full view or make changes.',
-                    textAlign: TextAlign.left,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 2, 
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
           ),
-        ),
-        _savedStyles.isEmpty
-            ? SliverFillRemaining(
+          _savedStyles.isEmpty
+              ? SliverFillRemaining(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -237,31 +200,29 @@ Widget build(BuildContext context) {
                   ),
                 ),
               )
-            : SliverPadding(
-                padding: const EdgeInsets.all(16.0),
-                sliver: SliverGrid(
+              : SliverGrid( // Keep SliverGrid directly in CustomScrollView
                   gridDelegate:
-                      SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount, // Using the dynamic crossAxisCount
-                    mainAxisSpacing: 16.0,
-                    crossAxisSpacing: 16.0,
-                    childAspectRatio: childAspectRatio, // Using the potentially dynamic childAspectRatio
-                  ),
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount, // Using the dynamic crossAxisCount
+                      mainAxisSpacing: 16.0,
+                      crossAxisSpacing: 16.0,
+                      childAspectRatio: childAspectRatio, // Using the potentially dynamic childAspectRatio
+                    ),
                   delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) {
-                      final item = _savedStyles[index];
-                      return SavedStyleCard(
-                        key: ValueKey(item.id),
-                        item: item,
-                        onDownload: () => _handleDownload(item),
-                        onDelete: () => _handleDelete(item),
-                      );
-                    },
-                    childCount: _savedStyles.length,
-                  ),
+                      (BuildContext context, int index) {
+                        final item = _savedStyles[index];
+                        return SavedStyleCard(
+                          key: ValueKey(item.id),
+                          item: item,
+                          onDownload: () => _handleDownload(item),
+                          onDelete: () => _handleDelete(item),
+                        );
+                      },
+                      childCount: _savedStyles.length,
+                    ),
                 ),
-              ),
-      ],
+        ],
+      ),
     ),
   );
 }

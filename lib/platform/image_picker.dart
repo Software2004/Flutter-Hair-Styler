@@ -2,9 +2,9 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_selector/file_selector.dart';
 
-// Conditional imports based on platform
-import 'image_picker_android.dart' if (dart.library.io) 'image_picker_android.dart';
-import 'image_picker_linux.dart' if (dart.library.io) 'image_picker_linux.dart';
+// Conditional imports based on platform (REMOVED as logic is self-contained below)
+// import 'image_picker_android.dart' if (dart.library.io) 'image_picker_android.dart';
+// import 'image_picker_linux.dart' if (dart.library.io) 'image_picker_linux.dart';
 
 /// Cross-platform image picker that uses the appropriate implementation
 /// based on the current platform (Android or Linux)
@@ -59,11 +59,11 @@ class PlatformImagePicker {
       label: 'images',
       mimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
     );
-    
-    final XFile? file = await FileSelector.platform.openFile(
+
+    final XFile? file = await openFile(
       acceptedTypeGroups: <XTypeGroup>[typeGroup],
     );
-    
+
     return file;
   }
 }

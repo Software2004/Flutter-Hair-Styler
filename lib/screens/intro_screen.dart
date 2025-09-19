@@ -4,10 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+// import 'package:image_picker/image_picker.dart'; // Not used in this file directly
 
 import '../widgets/primary_button.dart';
-import '../platform/image_picker.dart';
+// import '../platform/image_picker.dart'; // Not used in this file directly
 import 'home_screen.dart';
 
 class IntroScreen extends StatefulWidget {
@@ -19,10 +19,9 @@ class IntroScreen extends StatefulWidget {
   State<IntroScreen> createState() => _IntroScreenState();
 }
 
-class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin {
+class _IntroScreenState extends State<IntroScreen> {
   late final PageController _pageController;
-  late final AnimationController _rotationController;
-  late final Animation<double> _rotationAnimation;
+  // Removed _rotationController and _rotationAnimation
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
@@ -34,17 +33,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
     _pageController = PageController();
     _pageController.addListener(_handlePageScroll);
     
-    // Initialize rotation animation
-    _rotationController = AnimationController(
-      duration: const Duration(seconds: 20),
-      vsync: this,
-    );
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 2 * math.pi,
-    ).animate(_rotationController);
-    
-    _rotationController.repeat();
+    // Removed rotation animation initialization
     
     _loadAssetsAndPlay();
   }
@@ -68,49 +57,42 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final dynamic decoded = jsonDecode(manifestContent);
 
-      // Support both legacy and new AssetManifest formats
       List<String> allAssets = [];
       if (decoded is Map<String, dynamic>) {
         if (decoded.containsKey('assets') && decoded['assets'] is Map<String, dynamic>) {
-          // Flutter 3.16+ format: { "assets": { "path": [variants], ... }, ... }
           allAssets = (decoded['assets'] as Map<String, dynamic>).keys.cast<String>().toList();
         } else {
-          // Legacy format: { "path": [variants], ... }
           allAssets = decoded.keys.cast<String>().toList();
         }
       } else if (decoded is List) {
-        // Defensive: some tools may produce a flat list
         allAssets = decoded.cast<String>().toList();
       }
 
-      // Filter for .webp files in the hairstyles directory (case-insensitive)
       final candidates = allAssets
           .where((k) => k.startsWith('assets/images/hairstyles/'))
           .where((k) => k.toLowerCase().endsWith('.webp'))
           .toList();
 
-      print('Found ${candidates.length} hairstyle images: $candidates'); // Debug log
+      print('Found ${candidates.length} hairstyle images: $candidates');
 
       if (candidates.isNotEmpty) {
-
         setState(() {
           _images = candidates;
           _isLoading = false;
         });
 
-        // Start auto-play after a short delay to ensure UI is ready
         await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
           _autoPlay();
         }
       } else {
-        print('No hairstyle images found in assets'); // Debug log
+        print('No hairstyle images found in assets');
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading assets: $e'); // Debug log
+      print('Error loading assets: $e');
       setState(() {
         _isLoading = false;
       });
@@ -155,7 +137,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
   @override
   void dispose() {
     _pageController.dispose();
-    _rotationController.dispose();
+    // Removed _rotationController.dispose();
     super.dispose();
   }
 
@@ -178,43 +160,37 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
               },
               itemBuilder: (context, index) {
                 return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 800),
+                  duration: const Duration(milliseconds: 1200), // Slightly longer for fade
                   transitionBuilder: (Widget child, Animation<double> animation) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(1, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
+                    return FadeTransition(
+                      opacity: animation,
                       child: child,
                     );
                   },
                   child: Stack(
-                    key: ValueKey<int>(index),
+                    key: ValueKey<int>(index), // Ensure AnimatedSwitcher detects child change
                     children: [
-                      // Main image
-                      RotationTransition(
-                        turns: _rotationAnimation,
-                        child: Transform.rotate(
-                          angle: math.pi, // 180-degree rotation
-                          child: Container(
-                            decoration: BoxDecoration(
-                              image: DecorationImage(
-                                image: AssetImage(_images[index]),
-                                fit: BoxFit.cover,
-                                colorFilter: ColorFilter.mode(
-                                  Colors.black.withOpacity(0.2),
-                                  BlendMode.darken,
-                                ),
-                                onError: (error, stackTrace) {
-                                  print('Error loading image ${_images[index]}: $error');
-                                },
+                      // Main image - RotationTransition and Transform.rotate removed
+                      Transform.rotate(
+                        angle: math.pi, // Rotate by 180 degrees (pi radians)
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage(_images[index]),
+                              fit: BoxFit.cover,
+                              colorFilter: ColorFilter.mode(
+                                Colors.black.withOpacity(0.2),
+                                BlendMode.darken,
                               ),
+                              onError: (error, stackTrace) {
+                                print('Error loading image ${_images[index]}: $error');
+                              },
                             ),
                           ),
                         ),
                       ),
                       // Gradient overlay for depth
-                      Container(
+                      IgnorePointer(child: Container( // IgnorePointer to ensure gradient doesn't block interactions if any
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
@@ -226,7 +202,7 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
                             stops: const [0.5, 1.0],
                           ),
                         ),
-                      ),
+                      )),
                     ],
                   ),
                 );
@@ -237,7 +213,6 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
               child: CircularProgressIndicator(color: Colors.white),
             )
           else
-          // Fallback background if no images are found
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -251,7 +226,6 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
               ),
             ),
 
-          // Base dark overlay + animated dip during transitions
           Container(color: Colors.black.withOpacity(0.35)),
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
@@ -259,7 +233,6 @@ class _IntroScreenState extends State<IntroScreen> with TickerProviderStateMixin
             color: Colors.black.withOpacity(_transitionDarkness),
           ),
 
-          // Content overlay
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),

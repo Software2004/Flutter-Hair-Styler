@@ -10,11 +10,11 @@ class PlatformImagePicker {
         label: 'images',
         mimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
       );
-      
-      final XFile? file = await FileSelector.platform.openFile(
+
+      final XFile? file = await openFile(
         acceptedTypeGroups: <XTypeGroup>[typeGroup],
       );
-      
+
       return file;
     }
     return null;
