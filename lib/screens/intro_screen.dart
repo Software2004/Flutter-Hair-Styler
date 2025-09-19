@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -20,12 +21,28 @@ class _IntroScreenState extends State<IntroScreen> {
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
+  double _transitionDarkness = 0.0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _pageController.addListener(_handlePageScroll);
     _loadAssetsAndPlay();
+  }
+
+  void _handlePageScroll() {
+    if (!_pageController.hasClients || !_pageController.position.haveDimensions) return;
+    final double page = _pageController.page ?? _current.toDouble();
+    final double fractional = page - page.floorToDouble();
+    // Smooth dip to dark at mid-transition using sin(pi * t)
+    final double dip = math.sin(math.pi * fractional).clamp(0.0, 1.0);
+    final double targetDarkness = (dip * 0.35); // up to +0.35 black overlay
+    if ((targetDarkness - _transitionDarkness).abs() > 0.01) {
+      setState(() {
+        _transitionDarkness = targetDarkness;
+      });
+    }
   }
 
   Future<void> _loadAssetsAndPlay() async {
@@ -140,16 +157,35 @@ class _IntroScreenState extends State<IntroScreen> {
                 });
               },
               itemBuilder: (context, index) {
-                return Container(
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(_images[index]),
-                      fit: BoxFit.cover,
-                      onError: (error, stackTrace) {
-                        print('Error loading image ${_images[index]}: $error');
-                      },
+                return AnimatedBuilder(
+                  animation: _pageController,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(_images[index]),
+                        fit: BoxFit.cover,
+                        onError: (error, stackTrace) {
+                          print('Error loading image ${_images[index]}: $error');
+                        },
+                      ),
                     ),
                   ),
+                  builder: (context, child) {
+                    double pageOffset = 0.0;
+                    if (_pageController.hasClients && _pageController.position.haveDimensions) {
+                      final page = _pageController.page ?? _current.toDouble();
+                      pageOffset = (index - page).clamp(-1.0, 1.0);
+                    }
+                    final double scale = 1.0 - (0.05 * pageOffset.abs());
+                    final double opacity = 1.0 - (0.08 * pageOffset.abs());
+                    return Transform.scale(
+                      scale: scale,
+                      child: Opacity(
+                        opacity: opacity,
+                        child: child,
+                      ),
+                    );
+                  },
                 );
               },
             )
@@ -172,33 +208,13 @@ class _IntroScreenState extends State<IntroScreen> {
               ),
             ),
 
-          // Dark overlay
-          Container(color: Colors.black.withOpacity(0.45)),
-
-          // Page indicators (optional - shows which image is currently displayed)
-          if (_images.length > 1)
-            Positioned(
-              top: 60,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _images.length,
-                      (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _current == index
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.4),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // Base dark overlay + animated dip during transitions
+          Container(color: Colors.black.withOpacity(0.35)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            color: Colors.black.withOpacity(_transitionDarkness),
+          ),
 
           // Content overlay
           SafeArea(
