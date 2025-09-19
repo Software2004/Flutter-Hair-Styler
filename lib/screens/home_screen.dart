@@ -8,9 +8,9 @@ import '../data/style_data_provider.dart';
 import '../models/models.dart';
 import '../theme/app_styles.dart';
 import '../widgets/credits_badge.dart';
-import '../widgets/preview_list_item.dart';
 import '../widgets/primary_button.dart';
 import 'account_screen.dart';
+import 'my_styles_screen.dart'; // Added import for MyStylesScreen
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -26,10 +26,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Updated pages list to include MyStylesScreen
     final pages = [
       const _HomeTab(),
       const _PlaceholderTab(title: 'AI Recommendations'),
-      const _PlaceholderTab(title: 'My Styles'),
+      // This could be next to implement
+      const MyStylesScreen(),
+      // Replaced _PlaceholderTab with MyStylesScreen
       const AccountScreen(),
     ];
     return Scaffold(
@@ -41,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
           ),
-          // Optional: Add a subtle shadow
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
@@ -54,21 +56,17 @@ class _HomeScreenState extends State<HomeScreen> {
           currentIndex: _currentIndex,
           onTap: (i) => setState(() => _currentIndex = i),
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent, // Make inner nav bar transparent
+          backgroundColor: Colors.transparent,
           elevation: 0,
           selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
           showUnselectedLabels: true,
-          selectedLabelStyle:
-          Theme.of(context).textTheme.labelSmall?.copyWith(
+          selectedLabelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w600,
             height: 1.5,
           ),
-          unselectedLabelStyle:
-          Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-          ),
+          unselectedLabelStyle: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(fontWeight: FontWeight.w400, height: 1.5),
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
@@ -134,14 +132,14 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   List<StyleCategory> _categoriesData = const [];
   bool _loading = true;
   XFile? _pickedImage;
-  bool _isPickingImage = false; // Add loading state for image picking
+  bool _isPickingImage = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _categories.length, vsync: this)
       ..addListener(() {
-        if (mounted) setState(() {}); // ensure rebuild on tab change
+        if (mounted) setState(() {});
       });
     _loadAssets();
   }
@@ -151,12 +149,15 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       final data = await StyleDataProvider.getStyleCategories();
       if (!mounted) return;
 
-      // Debug logging
       debugPrint('Loaded ${data.length} categories');
       for (var category in data) {
-        debugPrint('Category: ${category.name} has ${category.styles.length} styles');
+        debugPrint(
+          'Category: ${category.name} has ${category.styles.length} styles',
+        );
         if (category.styles.isNotEmpty) {
-          debugPrint('First style: ${category.styles.first.name} - ${category.styles.first.assetPath}');
+          debugPrint(
+            'First style: ${category.styles.first.name} - ${category.styles.first.assetPath}',
+          );
         }
       }
 
@@ -244,34 +245,30 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           'Upload your photo or take a new one to discover amazing hairstyles.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.7),
-                          ),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.7),
+                              ),
                           textAlign: TextAlign.center,
                         ),
                       ),
                       const SizedBox(height: 32),
-                      // Fixed Upload Photo button
                       _isPickingImage
-                          ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
+                          ? const Center(child: CircularProgressIndicator())
                           : PrimaryButton(
-                        label: 'Upload Photo',
-                        icon: Icons.file_upload_outlined,
-                        onPressed: _pickFromGallery,
-                      ),
+                              label: 'Upload Photo',
+                              icon: Icons.file_upload_outlined,
+                              onPressed: _pickFromGallery,
+                            ),
                       const SizedBox(height: 16),
-                      // Fixed Camera button
                       _isPickingImage
                           ? Container()
                           : OutlinedButton.icon(
-                        onPressed: _pickFromCamera,
-                        icon: const Icon(Icons.photo_camera_outlined),
-                        label: const Text('Open Camera'),
-                        style: AppStyles.outlinedButton(context),
-                      ),
+                              onPressed: _pickFromCamera,
+                              icon: const Icon(Icons.photo_camera_outlined),
+                              label: const Text('Open Camera'),
+                              style: AppStyles.outlinedButton(context),
+                            ),
                       const SizedBox(height: 48),
                       Center(
                         child: Text(
@@ -285,10 +282,10 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           "AI-generated previews showing how you'd look",
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurface.withOpacity(0.7),
-                          ),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.7),
+                              ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -330,7 +327,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
             if (_pickedImage == null)
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6, // Fixed height for TabBarView
+                  height: MediaQuery.of(context).size.height * 0.6,
                   child: TabBarView(
                     controller: _tabController,
                     children: _categories.map((categoryName) {
@@ -338,16 +335,17 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         return const Center(child: CircularProgressIndicator());
                       }
 
-                      // Find the matching category data
                       StyleCategory? matchingCategory;
                       for (var cat in _categoriesData) {
-                        if (cat.name.toLowerCase() == categoryName.toLowerCase()) {
+                        if (cat.name.toLowerCase() ==
+                            categoryName.toLowerCase()) {
                           matchingCategory = cat;
                           break;
                         }
                       }
 
-                      if (matchingCategory == null || matchingCategory.styles.isEmpty) {
+                      if (matchingCategory == null ||
+                          matchingCategory.styles.isEmpty) {
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -360,9 +358,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                               const SizedBox(height: 16),
                               Text(
                                 'No styles available for $categoryName',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -372,12 +369,13 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       return Padding(
                         padding: const EdgeInsets.all(16),
                         child: GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.8,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.8,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
                           itemCount: matchingCategory.styles.length,
                           itemBuilder: (context, index) {
                             final item = matchingCategory!.styles[index];
@@ -389,13 +387,11 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-            // Display picked image
             if (_pickedImage != null)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Stack(
                   children: [
-                    // Display the picked image
                     Positioned.fill(
                       child: Image.file(
                         File(_pickedImage!.path),
@@ -422,7 +418,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         },
                       ),
                     ),
-                    // Back button
                     Positioned(
                       top: 20,
                       left: 16,
@@ -436,7 +431,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         },
                       ),
                     ),
-                    // Action buttons
                     Positioned(
                       top: 20,
                       right: 16,
@@ -450,7 +444,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
-                    // Rotation buttons
                     Positioned(
                       bottom: 110,
                       left: 0,
@@ -463,7 +456,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
-                    // Main action button
                     Positioned(
                       bottom: 24,
                       left: 20,
@@ -472,7 +464,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         label: 'Change Hairstyle',
                         icon: Icons.auto_awesome_rounded,
                         onPressed: () {
-                          // Handle hairstyle change
                           debugPrint('Change hairstyle pressed');
                         },
                       ),
@@ -489,12 +480,9 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   Widget _buildStyleCard(StyleItem item) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          // Handle style selection
           debugPrint('Selected style: ${item.name}');
         },
         borderRadius: BorderRadius.circular(16),
@@ -555,7 +543,11 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget _circleIcon(BuildContext context, IconData icon, {VoidCallback? onPressed}) {
+  Widget _circleIcon(
+    BuildContext context,
+    IconData icon, {
+    VoidCallback? onPressed,
+  }) {
     return Container(
       width: 44,
       height: 44,
@@ -565,9 +557,11 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       ),
       child: IconButton(
         icon: Icon(icon, color: Colors.white),
-        onPressed: onPressed ?? () {
-          debugPrint('Pressed $icon');
-        },
+        onPressed:
+            onPressed ??
+            () {
+              debugPrint('Pressed $icon');
+            },
       ),
     );
   }
@@ -580,7 +574,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     });
 
     try {
-      // Check permissions first (except on Linux)
       if (!Platform.isLinux) {
         final granted = await _ensurePermission([
           Permission.photos,
@@ -598,7 +591,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       final picker = ImagePicker();
       final image = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85, // Slightly lower quality for better performance
+        imageQuality: 85,
         maxWidth: 1024,
         maxHeight: 1024,
       );
@@ -637,7 +630,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     });
 
     try {
-      // Check camera permission (except on Linux)
       if (!Platform.isLinux) {
         final granted = await _ensurePermission([Permission.camera]);
 
@@ -652,7 +644,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       final picker = ImagePicker();
       final image = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85, // Slightly lower quality for better performance
+        imageQuality: 85,
         maxWidth: 1024,
         maxHeight: 1024,
       );
@@ -684,7 +676,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   }
 
   Future<bool> _ensurePermission(List<Permission> permissions) async {
-    // Skip permission check on Linux
     if (Platform.isLinux) return true;
 
     List<String> permanentlyDeniedPermissions = [];
@@ -698,26 +689,23 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
           permissionName[0].toUpperCase() + permissionName.substring(1);
 
       if (status.isGranted || status.isLimited) {
-        continue; // Already granted or limited, move to next permission
+        continue;
       }
 
       if (status.isPermanentlyDenied) {
         permanentlyDeniedPermissions.add(permissionFriendlyName);
         allActuallyGranted = false;
-        continue; // No need to request, move to next permission
+        continue;
       }
 
-      // If denied (but not permanently), or restricted, or another state that needs requesting:
-      PermissionStatus newStatus = await p.request(); // Show system dialog
+      PermissionStatus newStatus = await p.request();
 
       if (newStatus.isGranted || newStatus.isLimited) {
-        // User granted the permission in the dialog
         continue;
       } else if (newStatus.isPermanentlyDenied) {
         permanentlyDeniedPermissions.add(permissionFriendlyName);
         allActuallyGranted = false;
       } else {
-        // User explicitly denied the permission in the dialog (newStatus.isDenied)
         deniedPermissions.add(permissionFriendlyName);
         allActuallyGranted = false;
       }
@@ -727,7 +715,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       String message = '';
       if (permanentlyDeniedPermissions.isNotEmpty) {
         message =
-        '${permanentlyDeniedPermissions.join(', ')} permission(s) are permanently denied. Please enable in app settings.';
+            '${permanentlyDeniedPermissions.join(', ')} permission(s) are permanently denied. Please enable in app settings.';
       } else if (deniedPermissions.isNotEmpty) {
         message = '${deniedPermissions.join(', ')} permission(s) were denied.';
       }
@@ -736,14 +724,12 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: Colors.orange,
             duration: const Duration(seconds: 3),
           ),
         );
       }
 
       if (permanentlyDeniedPermissions.isNotEmpty) {
-        // Give SnackBar a moment to be seen before opening settings
         await Future.delayed(const Duration(milliseconds: 1500));
         await openAppSettings();
       }

@@ -38,6 +38,7 @@ dependencies:
   google_fonts: ^6.2.1
   image_picker: ^1.2.0
   permission_handler: ^12.0.1
+  image_gallery_saver: ^2.0.3 # Added image_gallery_saver
   url_launcher: ^6.2.5
   device_info_plus: ^9.1.2
 
@@ -65,7 +66,7 @@ flutter:
 
   assets:
     # Using online images for now; keep folder reserved for future local assets
-    - assets/images/
+    - assets/images/hairstyles/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

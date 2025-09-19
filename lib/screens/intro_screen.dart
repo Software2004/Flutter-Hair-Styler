@@ -57,6 +57,7 @@ class _IntroScreenState extends State<IntroScreen> {
       print('Found ${candidates.length} hairstyle images: $candidates'); // Debug log
 
       if (candidates.isNotEmpty) {
+
         setState(() {
           _images = candidates;
           _isLoading = false;
@@ -93,8 +94,8 @@ class _IntroScreenState extends State<IntroScreen> {
       try {
         await _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 1200),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 1500),
+          curve: Curves.fastOutSlowIn,
         );
 
         if (mounted) {
@@ -140,15 +141,51 @@ class _IntroScreenState extends State<IntroScreen> {
                 });
               },
               itemBuilder: (context, index) {
-                return Container(
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(_images[index]),
-                      fit: BoxFit.cover,
-                      onError: (error, stackTrace) {
-                        print('Error loading image ${_images[index]}: $error');
-                      },
-                    ),
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 800),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    );
+                  },
+                  child: Stack(
+                    key: ValueKey<int>(index),
+                    children: [
+                      // Main image
+                      Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage(_images[index]),
+                            fit: BoxFit.cover,
+                            colorFilter: ColorFilter.mode(
+                              Colors.black.withOpacity(0.2),
+                              BlendMode.darken,
+                            ),
+                            onError: (error, stackTrace) {
+                              print('Error loading image ${_images[index]}: $error');
+                            },
+                          ),
+                        ),
+                      ),
+                      // Gradient overlay for depth
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.6),
+                            ],
+                            stops: const [0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -168,34 +205,6 @@ class _IntroScreenState extends State<IntroScreen> {
                     Color(0xFF6B73FF),
                     Color(0xFF9D4EDD),
                   ],
-                ),
-              ),
-            ),
-
-          // Dark overlay
-          Container(color: Colors.black.withOpacity(0.45)),
-
-          // Page indicators (optional - shows which image is currently displayed)
-          if (_images.length > 1)
-            Positioned(
-              top: 60,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _images.length,
-                      (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _current == index
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.4),
-                    ),
-                  ),
                 ),
               ),
             ),
