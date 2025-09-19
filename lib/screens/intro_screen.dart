@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../widgets/primary_button.dart';
+import '../platform/image_picker.dart';
 import 'home_screen.dart';
 
 class IntroScreen extends StatefulWidget {
@@ -22,6 +25,8 @@ class _IntroScreenState extends State<IntroScreen> {
   int _current = 0;
   bool _isLoading = true;
   double _transitionDarkness = 0.0;
+  XFile? _pickedImage;
+  bool _isPickingImage = false;
 
   @override
   void initState() {
@@ -123,6 +128,54 @@ class _IntroScreenState extends State<IntroScreen> {
       } catch (e) {
         print('Error animating to page: $e');
         break;
+      }
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    if (!mounted || _isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
+    try {
+      final XFile? image = await PlatformImagePicker.pickImageFromGallery();
+      
+      if (!mounted) return;
+
+      setState(() {
+        _isPickingImage = false;
+        if (image != null) {
+          _pickedImage = image;
+          debugPrint('Image picked from gallery: ${image.path}');
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image loaded successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          debugPrint('No image selected from gallery');
+        }
+      });
+    } catch (e) {
+      debugPrint('Error picking image from gallery: $e');
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error accessing gallery: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -269,10 +322,20 @@ class _IntroScreenState extends State<IntroScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  PrimaryButton(
-                      label: 'Agree & Continue',
-                      onPressed: _agreeAndContinue
-                  ),
+                  if (_isPickingImage)
+                    const Center(child: CircularProgressIndicator(color: Colors.white))
+                  else
+                    PrimaryButton(
+                        label: 'Upload Image',
+                        icon: Icons.file_upload_outlined,
+                        onPressed: _pickImageFromGallery
+                    ),
+                  const SizedBox(height: 16),
+                  if (!_isPickingImage)
+                    PrimaryButton(
+                        label: 'Agree & Continue',
+                        onPressed: _agreeAndContinue
+                    ),
                 ],
               ),
             ),
