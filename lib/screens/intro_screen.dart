@@ -31,11 +31,27 @@ class _IntroScreenState extends State<IntroScreen> {
   Future<void> _loadAssetsAndPlay() async {
     try {
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
-      final Map<String, dynamic> manifestMap = jsonDecode(manifestContent) as Map<String, dynamic>;
+      final dynamic decoded = jsonDecode(manifestContent);
 
-      // Filter for .webp files in the hairstyles directory
-      final candidates = manifestMap.keys
-          .where((k) => k.startsWith('assets/images/hairstyles/') && k.endsWith('.webp'))
+      // Support both legacy and new AssetManifest formats
+      List<String> allAssets = [];
+      if (decoded is Map<String, dynamic>) {
+        if (decoded.containsKey('assets') && decoded['assets'] is Map<String, dynamic>) {
+          // Flutter 3.16+ format: { "assets": { "path": [variants], ... }, ... }
+          allAssets = (decoded['assets'] as Map<String, dynamic>).keys.cast<String>().toList();
+        } else {
+          // Legacy format: { "path": [variants], ... }
+          allAssets = decoded.keys.cast<String>().toList();
+        }
+      } else if (decoded is List) {
+        // Defensive: some tools may produce a flat list
+        allAssets = decoded.cast<String>().toList();
+      }
+
+      // Filter for .webp files in the hairstyles directory (case-insensitive)
+      final candidates = allAssets
+          .where((k) => k.startsWith('assets/images/hairstyles/'))
+          .where((k) => k.toLowerCase().endsWith('.webp'))
           .toList();
 
       print('Found ${candidates.length} hairstyle images: $candidates'); // Debug log
