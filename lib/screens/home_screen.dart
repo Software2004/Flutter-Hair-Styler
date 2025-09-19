@@ -165,12 +165,24 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         _categoriesData = data;
         _loading = false;
       });
+      
+      // Additional debug to verify data structure
+      debugPrint('Final categories data: ${_categoriesData.map((c) => '${c.name}: ${c.styles.length} styles').toList()}');
     } catch (e) {
       debugPrint('Error loading assets: $e');
       if (mounted) {
         setState(() {
           _loading = false;
         });
+        
+        // Show error message to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading style data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -343,6 +355,11 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           break;
                         }
                       }
+                      
+                      // Debug print to help identify the issue
+                      debugPrint('Looking for category: $categoryName');
+                      debugPrint('Available categories: ${_categoriesData.map((c) => c.name).toList()}');
+                      debugPrint('Found matching category: ${matchingCategory?.name}');
 
                       if (matchingCategory == null ||
                           matchingCategory.styles.isEmpty) {
@@ -360,6 +377,14 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                                 'No styles available for $categoryName',
                                 style: Theme.of(context).textTheme.bodyLarge
                                     ?.copyWith(color: Colors.grey[600]),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Please check if the assets are properly loaded',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.grey[500]),
+                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
@@ -603,6 +628,17 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image picked from gallery: ${image.path}');
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image loaded successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          debugPrint('No image selected from gallery');
         }
       });
     } catch (e) {
@@ -616,6 +652,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
           SnackBar(
             content: Text('Error accessing gallery: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -656,6 +693,17 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image taken from camera: ${image.path}');
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo taken successfully!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          debugPrint('No image taken from camera');
         }
       });
     } catch (e) {
