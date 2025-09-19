@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 
 import '../widgets/primary_button.dart';
 import 'home_screen.dart';
@@ -29,7 +30,7 @@ class _IntroScreenState extends State<IntroScreen> {
 
   Future<void> _loadAssetsAndPlay() async {
     try {
-      final manifestContent = await DefaultAssetBundle.of(context).loadString('AssetManifest.json');
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = jsonDecode(manifestContent) as Map<String, dynamic>;
 
       // Filter for .webp files in the hairstyles directory
