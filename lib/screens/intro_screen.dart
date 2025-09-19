@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -20,12 +21,28 @@ class _IntroScreenState extends State<IntroScreen> {
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
+  double _transitionDarkness = 0.0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _pageController.addListener(_handlePageScroll);
     _loadAssetsAndPlay();
+  }
+
+  void _handlePageScroll() {
+    if (!_pageController.hasClients || !_pageController.position.haveDimensions) return;
+    final double page = _pageController.page ?? _current.toDouble();
+    final double fractional = page - page.floorToDouble();
+    // Smooth dip to dark at mid-transition using sin(pi * t)
+    final double dip = math.sin(math.pi * fractional).clamp(0.0, 1.0);
+    final double targetDarkness = (dip * 0.35); // up to +0.35 black overlay
+    if ((targetDarkness - _transitionDarkness).abs() > 0.01) {
+      setState(() {
+        _transitionDarkness = targetDarkness;
+      });
+    }
   }
 
   Future<void> _loadAssetsAndPlay() async {
@@ -208,6 +225,14 @@ class _IntroScreenState extends State<IntroScreen> {
                 ),
               ),
             ),
+
+          // Base dark overlay + animated dip during transitions
+          Container(color: Colors.black.withOpacity(0.35)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            color: Colors.black.withOpacity(_transitionDarkness),
+          ),
 
           // Content overlay
           SafeArea(
