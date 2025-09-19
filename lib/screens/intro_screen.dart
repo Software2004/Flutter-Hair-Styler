@@ -74,6 +74,7 @@ class _IntroScreenState extends State<IntroScreen> {
       print('Found ${candidates.length} hairstyle images: $candidates'); // Debug log
 
       if (candidates.isNotEmpty) {
+
         setState(() {
           _images = candidates;
           _isLoading = false;
@@ -110,8 +111,8 @@ class _IntroScreenState extends State<IntroScreen> {
       try {
         await _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 1200),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 1500),
+          curve: Curves.fastOutSlowIn,
         );
 
         if (mounted) {
@@ -157,35 +158,52 @@ class _IntroScreenState extends State<IntroScreen> {
                 });
               },
               itemBuilder: (context, index) {
-                return AnimatedBuilder(
-                  animation: _pageController,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(_images[index]),
-                        fit: BoxFit.cover,
-                        onError: (error, stackTrace) {
-                          print('Error loading image ${_images[index]}: $error');
-                        },
-                      ),
-                    ),
-                  ),
-                  builder: (context, child) {
-                    double pageOffset = 0.0;
-                    if (_pageController.hasClients && _pageController.position.haveDimensions) {
-                      final page = _pageController.page ?? _current.toDouble();
-                      pageOffset = (index - page).clamp(-1.0, 1.0);
-                    }
-                    final double scale = 1.0 - (0.05 * pageOffset.abs());
-                    final double opacity = 1.0 - (0.08 * pageOffset.abs());
-                    return Transform.scale(
-                      scale: scale,
-                      child: Opacity(
-                        opacity: opacity,
-                        child: child,
-                      ),
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 800),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
                     );
                   },
+                  child: Stack(
+                    key: ValueKey<int>(index),
+                    children: [
+                      // Main image
+                      Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage(_images[index]),
+                            fit: BoxFit.cover,
+                            colorFilter: ColorFilter.mode(
+                              Colors.black.withOpacity(0.2),
+                              BlendMode.darken,
+                            ),
+                            onError: (error, stackTrace) {
+                              print('Error loading image ${_images[index]}: $error');
+                            },
+                          ),
+                        ),
+                      ),
+                      // Gradient overlay for depth
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.6),
+                            ],
+                            stops: const [0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             )
