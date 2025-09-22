@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 typedef FontBuilder =
     TextStyle Function({
@@ -98,6 +99,22 @@ ThemeData buildLightTheme(FontBuilder font) {
     dividerTheme: base.dividerTheme.copyWith(
       color: AppColors.textLight.withOpacity(0.1),
     ),
+    bottomNavigationBarTheme: base.bottomNavigationBarTheme.copyWith(
+      backgroundColor: AppColors.backgroundLight,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textLight.withOpacity(0.6),
+      elevation: 0,
+      type: BottomNavigationBarType.fixed,
+    ),
+    appBarTheme: base.appBarTheme.copyWith(
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: AppColors.backgroundLight,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: AppColors.backgroundLight,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    ),
   );
 }
 
@@ -173,6 +190,22 @@ ThemeData buildDarkTheme(FontBuilder font) {
     iconTheme: base.iconTheme.copyWith(color: AppColors.textDark, size: 24),
     dividerTheme: base.dividerTheme.copyWith(
       color: AppColors.textDark.withOpacity(0.1),
+    ),
+    bottomNavigationBarTheme: base.bottomNavigationBarTheme.copyWith(
+      backgroundColor: AppColors.backgroundDark,
+      selectedItemColor: AppColors.primary,
+      unselectedItemColor: AppColors.textDark.withOpacity(0.6),
+      elevation: 0,
+      type: BottomNavigationBarType.fixed,
+    ),
+    appBarTheme: base.appBarTheme.copyWith(
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: AppColors.backgroundDark,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: AppColors.backgroundDark,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
     ),
   );
 }

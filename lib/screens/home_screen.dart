@@ -1,18 +1,20 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
-
-import '../platform/image_picker.dart';
 
 import '../data/style_data_provider.dart';
 import '../models/models.dart';
-import '../theme/app_styles.dart';
+import '../platform/image_picker.dart';
 import '../widgets/credits_badge.dart';
+import '../widgets/home_screen_header.dart';
+import '../widgets/outlined_primary_button.dart';
 import '../widgets/primary_button.dart';
 import 'account_screen.dart';
 import 'my_styles_screen.dart'; // Added import for MyStylesScreen
+import 'view_image_screen.dart';
+import 'ai_recommendation_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -28,10 +30,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure system status/navigation bars match current theme background
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).colorScheme.background;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: bgColor,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: bgColor,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+    );
     // Updated pages list to include MyStylesScreen
     final pages = [
       const _HomeTab(),
-      const _PlaceholderTab(title: 'AI Recommendations'),
+      const AIRecommendationTab(),
       // This could be next to implement
       const MyStylesScreen(),
       // Replaced _PlaceholderTab with MyStylesScreen
@@ -40,8 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: pages[_currentIndex],
       bottomNavigationBar: Container(
+        height: 65,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: Theme.of(context).colorScheme.background,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
@@ -86,8 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'My Styles',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
+              icon: Icon(Icons.account_circle_outlined),
+              activeIcon: Icon(Icons.account_circle),
               label: 'Account',
             ),
           ],
@@ -124,8 +141,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   ];
 
   final List<IconData> _categoryIcons = const [
-    Icons.male,
-    Icons.female,
+    Icons.man,
+    Icons.woman_rounded,
     Icons.boy,
     Icons.girl,
   ];
@@ -167,16 +184,18 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         _categoriesData = data;
         _loading = false;
       });
-      
+
       // Additional debug to verify data structure
-      debugPrint('Final categories data: ${_categoriesData.map((c) => '${c.name}: ${c.styles.length} styles').toList()}');
+      debugPrint(
+        'Final categories data: ${_categoriesData.map((c) => '${c.name}: ${c.styles.length} styles').toList()}',
+      );
     } catch (e) {
       debugPrint('Error loading assets: $e');
       if (mounted) {
         setState(() {
           _loading = false;
         });
-        
+
         // Show error message to user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -208,36 +227,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       child: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.face_6_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'AI Hair Styler',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const Spacer(),
-                    const CreditsBadge(credits: 179),
-                  ],
-                ),
-              ),
-            ),
+            const SliverToBoxAdapter(child: HomeScreenHeader()),
             if (_pickedImage == null)
               SliverToBoxAdapter(
                 child: Padding(
@@ -277,11 +267,10 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       const SizedBox(height: 16),
                       _isPickingImage
                           ? Container()
-                          : OutlinedButton.icon(
+                          : OutlinedPrimaryButton(
                               onPressed: _pickFromCamera,
-                              icon: const Icon(Icons.photo_camera_outlined),
-                              label: const Text('Open Camera'),
-                              style: AppStyles.outlinedButton(context),
+                              icon: Icons.photo_camera_outlined,
+                              label: 'Open Camera',
                             ),
                       const SizedBox(height: 48),
                       Center(
@@ -312,36 +301,46 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    indicator: UnderlineTabIndicator(
-                      borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 3.0,
-                      ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0x22AAAAAA),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    tabs: List.generate(_categories.length, (index) {
-                      return Tab(
-                        child: Row(
-                          children: [
-                            Icon(_categoryIcons[index], size: 20),
-                            const SizedBox(width: 8),
-                            Text(_categories[index]),
-                          ],
-                        ),
-                      );
-                    }),
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      indicator: BoxDecoration(
+                        color: Theme.of(context).colorScheme.background,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelColor: Theme.of(context).colorScheme.onSurface,
+                      unselectedLabelColor:
+                          Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      tabs: List.generate(_categories.length, (index) {
+                        return Tab(
+                          child: Row(
+                            children: [
+                              Icon(_categoryIcons[index], size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                _categories[index],
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
                   ),
                 ),
               ),
             if (_pickedImage == null)
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6,
+                  height: _currentTabGridHeight(context),
                   child: TabBarView(
                     controller: _tabController,
                     children: _categories.map((categoryName) {
@@ -357,11 +356,14 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           break;
                         }
                       }
-                      
-                      // Debug print to help identify the issue
+
                       debugPrint('Looking for category: $categoryName');
-                      debugPrint('Available categories: ${_categoriesData.map((c) => c.name).toList()}');
-                      debugPrint('Found matching category: ${matchingCategory?.name}');
+                      debugPrint(
+                        'Available categories: ${_categoriesData.map((c) => c.name).toList()}',
+                      );
+                      debugPrint(
+                        'Found matching category: ${matchingCategory?.name}',
+                      );
 
                       if (matchingCategory == null ||
                           matchingCategory.styles.isEmpty) {
@@ -506,6 +508,53 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     );
   }
 
+  double _calculateGridHeight(BuildContext context, int itemCount) {
+    // Grid: 2 columns, childAspectRatio 0.8, spacing 16, padding 16
+    const int crossAxisCount = 2;
+    const double crossAxisSpacing = 16;
+    const double mainAxisSpacing = 16;
+    const double childAspectRatio = 0.8; // width / height
+
+    final double horizontalPadding = 16 * 2; // from Padding around Grid
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double availableWidth =
+        screenWidth - horizontalPadding - crossAxisSpacing;
+    final double itemWidth = (availableWidth) / crossAxisCount;
+    final double itemHeight = itemWidth / childAspectRatio;
+
+    final int rows = (itemCount / crossAxisCount).ceil();
+    final double totalHeight =
+        (rows * itemHeight) + ((rows - 1) * mainAxisSpacing);
+    return totalHeight;
+  }
+
+  double _currentTabGridHeight(BuildContext context) {
+    if (_loading) {
+      // Reserve some height to show progress indicator nicely
+      return MediaQuery.of(context).size.height * 0.3;
+    }
+
+    final String currentCategory = _categories[_tabController.index];
+    StyleCategory? matchingCategory;
+    for (var cat in _categoriesData) {
+      if (cat.name.toLowerCase() == currentCategory.toLowerCase()) {
+        matchingCategory = cat;
+        break;
+      }
+    }
+
+    final int itemCount = matchingCategory?.styles.length ?? 0;
+
+    // If empty, allocate minimal space so placeholder can be centered
+    if (itemCount == 0) {
+      return MediaQuery.of(context).size.height * 0.25;
+    }
+
+    // Add extra space for top/bottom paddings inside the sliver section
+    final double grid = _calculateGridHeight(context, itemCount);
+    return grid + 32; // 16 top + 16 bottom padding
+  }
+
   Widget _buildStyleCard(StyleItem item) {
     return Card(
       elevation: 0,
@@ -513,14 +562,21 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
-          debugPrint('Selected style: ${item.name}');
+          Navigator.pushNamed(
+            context,
+            ViewImageScreen.routeName,
+            arguments: {
+              'imagePath': item.assetPath,
+              'title': item.name,
+            },
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Container(
                 decoration: const BoxDecoration(
                   borderRadius: BorderRadius.only(
@@ -557,9 +613,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                 child: Center(
                   child: Text(
                     item.name,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -605,7 +659,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
     try {
       final XFile? image = await PlatformImagePicker.pickImageFromGallery();
-      
+
       if (!mounted) return;
 
       setState(() {
@@ -613,7 +667,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image picked from gallery: ${image.path}');
-          
+
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -653,7 +707,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
     try {
       final XFile? image = await PlatformImagePicker.pickImageFromCamera();
-      
+
       if (!mounted) return;
 
       setState(() {
@@ -661,7 +715,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image taken from camera: ${image.path}');
-          
+
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -690,5 +744,4 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       }
     }
   }
-
 }

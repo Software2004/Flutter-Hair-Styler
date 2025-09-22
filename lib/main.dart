@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/intro_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/signup_screen.dart';
 import 'screens/privacy_policy_screen.dart';
 import 'screens/terms_of_service_screen.dart';
+import 'screens/view_image_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -27,7 +37,15 @@ class MyApp extends StatelessWidget {
       routes: {
         SplashScreen.routeName: (_) => const SplashScreen(),
         IntroScreen.routeName: (_) => const IntroScreen(),
+        LoginScreen.routeName: (_) => const LoginScreen(),
+        SignupScreen.routeName: (_) => const SignupScreen(),
         HomeScreen.routeName: (_) => const HomeScreen(),
+        ViewImageScreen.routeName: (ctx) {
+          final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+          final path = args?['imagePath'] as String? ?? '';
+          final title = args?['title'] as String? ?? 'Preview';
+          return ViewImageScreen(imagePath: path, title: title);
+        },
         PrivacyPolicyScreen.routeName: (_) => const PrivacyPolicyScreen(),
         TermsOfServiceScreen.routeName: (_) => const TermsOfServiceScreen(),
       },

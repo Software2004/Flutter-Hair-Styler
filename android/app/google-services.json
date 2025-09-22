@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "505492968767",
+    "project_id": "flutter-hair-styler",
+    "storage_bucket": "flutter-hair-styler.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:505492968767:android:bbc708a20b038d8dd12f8a",
+        "android_client_info": {
+          "package_name": "com.example.flutter_hair_styler"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBE_1Nu3oVkKMGVW7fUQkkRQfwEjWZYpfo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

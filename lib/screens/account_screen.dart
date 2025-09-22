@@ -1,12 +1,12 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hair_styler/screens/login_screen.dart';
 import 'package:flutter_hair_styler/screens/privacy_policy_screen.dart';
 import 'package:flutter_hair_styler/screens/subscription_plan.dart';
 import 'package:flutter_hair_styler/screens/terms_of_service_screen.dart';
+import 'package:flutter_hair_styler/widgets/outlined_primary_button.dart';
 import 'package:flutter_hair_styler/widgets/primary_button.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../theme/app_styles.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -16,6 +16,8 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
+  // Controls the vertical gap between the last info card and the info tiles section
+
   Future<void> _launchSupportEmail() async {
     final deviceInfo = DeviceInfoPlugin();
     String deviceModel = 'Unknown device';
@@ -54,24 +56,20 @@ class _AccountScreenState extends State<AccountScreen> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
             CircleAvatar(
               radius: 50,
               backgroundColor: Colors.transparent,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.grey, width: 1),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Icon(Icons.person, size: 50, color: Colors.grey),
+              child: const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Icon(
+                  Icons.account_circle_outlined,
+                  size: 80,
+                  color: Colors.grey,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
             Text('Guest User', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 4),
             Text(
               '"Future Look Revealed"',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -88,7 +86,7 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _InfoCard(
               title: 'Subscription',
               trailing: Text(
@@ -96,54 +94,47 @@ class _AccountScreenState extends State<AccountScreen> {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            // const SizedBox(height: ),
+
             ListView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(vertical: 16),
               children: [
-                ListTile(
-                  title: const Text('Privacy Policy'),
-                  trailing: const Icon(Icons.chevron_right),
+                _InfoTile(
+                  title: 'Privacy Policy',
                   onTap: () async {
                     final result = await Navigator.pushNamed(
                       context,
                       PrivacyPolicyScreen.routeName,
                     );
-                    if (result == true) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Privacy Policy accepted'),
-                          ),
-                        );
-                      }
+                    if (result == true && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Privacy Policy accepted'),
+                        ),
+                      );
                     }
                   },
                 ),
-                ListTile(
-                  title: const Text('Terms of Service'),
-                  trailing: const Icon(Icons.chevron_right),
+                const SizedBox(height: 16),
+                _InfoTile(
+                  title: 'Terms of Service',
                   onTap: () async {
                     final result = await Navigator.pushNamed(
                       context,
                       TermsOfServiceScreen.routeName,
                     );
-                    if (result == true) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Terms of Service accepted'),
-                          ),
-                        );
-                      }
+                    if (result == true && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Terms of Service accepted'),
+                        ),
+                      );
                     }
                   },
                 ),
-                ListTile(
-                  title: const Text('Support'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _launchSupportEmail,
-                ),
+                const SizedBox(height: 16),
+                _InfoTile(title: 'Support', onTap: _launchSupportEmail),
               ],
             ),
             const SizedBox(height: 24),
@@ -160,13 +151,12 @@ class _AccountScreenState extends State<AccountScreen> {
               },
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
+            OutlinedPrimaryButton(
+              label: 'Login / Register',
+              icon: Icons.login,
               onPressed: () {
-                // TODO: Navigate to AuthScreen
+                Navigator.pushNamed(context, LoginScreen.routeName);
               },
-              icon: const Icon(Icons.login),
-              label: const Text('Login / Register'),
-              style: AppStyles.outlinedButton(context),
             ),
             const SizedBox(height: 32),
             Text(
@@ -195,21 +185,57 @@ class _InfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        // boxShadow: [
-        //   BoxShadow(
-        //     color: Colors.black.withOpacity(0.05),
-        //     blurRadius: 10,
-        //     offset: const Offset(0, 2),
-        //   ),
-        // ],
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          trailing,
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleSmall),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  final String title;
+  final VoidCallback? onTap;
+
+  const _InfoTile({required this.title, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                Icon(
+                  Icons.chevron_right,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

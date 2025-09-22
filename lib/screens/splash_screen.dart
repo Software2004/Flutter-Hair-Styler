@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/home_screen.dart';
@@ -32,20 +33,27 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).colorScheme.background;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: bgColor,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: bgColor,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
+      ),
+    );
     return Scaffold(
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
+            SizedBox(
               width: 96,
               height: 96,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(Icons.female, color: color, size: 56),
+              child: Image.asset('assets/images/ic_launcher-playstore.png'),
             ),
             const SizedBox(height: 24),
             Text(
@@ -56,11 +64,10 @@ class _SplashScreenState extends State<SplashScreen> {
             Text(
               'Discover your perfect look.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onBackground
-                        .withOpacity(0.7),
-                  ),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onBackground.withOpacity(0.7),
+              ),
             ),
           ],
         ),
@@ -68,5 +75,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-
-
