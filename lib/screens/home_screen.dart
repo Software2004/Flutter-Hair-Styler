@@ -306,33 +306,39 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                       color: const Color(0x22AAAAAA),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      tabAlignment: TabAlignment.start,
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      indicator: BoxDecoration(
-                        color: Theme.of(context).colorScheme.background,
-                        borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: TabBar(
+                        controller: _tabController,
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        indicator: BoxDecoration(
+                          color: Theme.of(context).colorScheme.background,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelColor: Theme.of(context).colorScheme.onSurface,
+                        unselectedLabelColor:
+                            Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        splashFactory: NoSplash.splashFactory,
+                        overlayColor: MaterialStateProperty.all(Colors.transparent),
+                        dividerColor: Colors.transparent,
+                        tabs: List.generate(_categories.length, (index) {
+                          return Tab(
+                            child: Row(
+                              children: [
+                                Icon(_categoryIcons[index], size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _categories[index],
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                       ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelColor: Theme.of(context).colorScheme.onSurface,
-                      unselectedLabelColor:
-                          Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      tabs: List.generate(_categories.length, (index) {
-                        return Tab(
-                          child: Row(
-                            children: [
-                              Icon(_categoryIcons[index], size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                _categories[index],
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
                     ),
                   ),
                 ),

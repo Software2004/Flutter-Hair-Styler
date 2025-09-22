@@ -20,36 +20,26 @@ class IntroScreen extends StatefulWidget {
 }
 
 class _IntroScreenState extends State<IntroScreen> {
-  late final PageController _pageController;
-  // Removed _rotationController and _rotationAnimation
+  // Removed PageController and slide-based navigation
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
-  double _transitionDarkness = 0.0;
+  bool _blackOverlayVisible = false; // For 300ms fade-to-black between images
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _pageController.addListener(_handlePageScroll);
-    
-    // Removed rotation animation initialization
-    
-    _loadAssetsAndPlay();
-  }
+    // Enable edge-to-edge and make system bars transparent on this screen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ));
 
-  void _handlePageScroll() {
-    if (!_pageController.hasClients || !_pageController.position.haveDimensions) return;
-    final double page = _pageController.page ?? _current.toDouble();
-    final double fractional = page - page.floorToDouble();
-    // Smooth dip to dark at mid-transition using sin(pi * t)
-    final double dip = math.sin(math.pi * fractional).clamp(0.0, 1.0);
-    final double targetDarkness = (dip * 0.35); // up to +0.35 black overlay
-    if ((targetDarkness - _transitionDarkness).abs() > 0.01) {
-      setState(() {
-        _transitionDarkness = targetDarkness;
-      });
-    }
+    _loadAssetsAndPlay();
   }
 
   Future<void> _loadAssetsAndPlay() async {
@@ -106,24 +96,34 @@ class _IntroScreenState extends State<IntroScreen> {
       await Future.delayed(const Duration(seconds: 4));
       if (!mounted) return;
 
-      final nextIndex = (_current + 1) % _images.length;
-
+      // Smoothness: pre-cache the next image before transitioning
+      final int nextIndex = (_current + 1) % _images.length;
+      final String nextPath = _images[nextIndex];
       try {
-        await _pageController.animateToPage(
-          nextIndex,
-          duration: const Duration(milliseconds: 1500),
-          curve: Curves.fastOutSlowIn,
-        );
+        await precacheImage(AssetImage(nextPath), context);
+      } catch (_) {}
 
-        if (mounted) {
-          setState(() {
-            _current = nextIndex;
-          });
-        }
-      } catch (e) {
-        print('Error animating to page: $e');
-        break;
-      }
+      // Fade to black over 300ms
+      setState(() {
+        _blackOverlayVisible = true;
+      });
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
+      // Swap image instantly while black overlay is visible
+      setState(() {
+        _current = nextIndex;
+      });
+
+      // Wait until the frame with the new image is rendered to avoid visible jerk
+      await WidgetsBinding.instance.endOfFrame;
+
+      // Fade back from black over 300ms
+      if (!mounted) return;
+      setState(() {
+        _blackOverlayVisible = false;
+      });
+      await Future.delayed(const Duration(milliseconds: 300));
     }
   }
 
@@ -136,8 +136,7 @@ class _IntroScreenState extends State<IntroScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
-    // Removed _rotationController.dispose();
+    // Optionally restore UI mode if needed (kept minimal to affect only this screen)
     super.dispose();
   }
 
@@ -146,67 +145,30 @@ class _IntroScreenState extends State<IntroScreen> {
     const onDark = Colors.white;
 
     return Scaffold(
+      extendBody: true,
       body: Stack(
         children: [
-          // Background images
+          // Background image (single image at a time)
           if (_images.isNotEmpty)
-            PageView.builder(
-              controller: _pageController,
-              itemCount: _images.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _current = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 1200), // Slightly longer for fade
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    );
-                  },
-                  child: Stack(
-                    key: ValueKey<int>(index), // Ensure AnimatedSwitcher detects child change
-                    children: [
-                      // Main image - RotationTransition and Transform.rotate removed
-                      Transform.rotate(
-                        angle: math.pi, // Rotate by 180 degrees (pi radians)
-                        child: Container(
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              image: AssetImage(_images[index]),
-                              fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(
-                                Colors.black.withOpacity(0.2),
-                                BlendMode.darken,
-                              ),
-                              onError: (error, stackTrace) {
-                                print('Error loading image ${_images[index]}: $error');
-                              },
-                            ),
-                          ),
-                        ),
+            Positioned.fill(
+              child: Transform.rotate(
+                angle: math.pi, // rotate slideshow by 180 degrees
+                child: Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(_images[_current]),
+                      fit: BoxFit.cover,
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withOpacity(0.2),
+                        BlendMode.darken,
                       ),
-                      // Gradient overlay for depth
-                      IgnorePointer(child: Container( // IgnorePointer to ensure gradient doesn't block interactions if any
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.6),
-                            ],
-                            stops: const [0.5, 1.0],
-                          ),
-                        ),
-                      )),
-                    ],
+                      onError: (error, stackTrace) {
+                        print('Error loading image ${_images[_current]}: $error');
+                      },
+                    ),
                   ),
-                );
-              },
+                ),
+              ),
             )
           else if (_isLoading)
             const Center(
@@ -227,53 +189,59 @@ class _IntroScreenState extends State<IntroScreen> {
             ),
 
           Container(color: Colors.black.withOpacity(0.35)),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            color: Colors.black.withOpacity(_transitionDarkness),
+          // Fade-to-black overlay (300ms)
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            opacity: _blackOverlayVisible ? 1.0 : 0.0,
+            child: Container(color: Colors.black),
           ),
 
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Column(
-                children: [
-                  const Spacer(),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(Icons.lightbulb_outline, color: onDark, size: 36),
-                  ),
-                  const SizedBox(height: 12),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Transform Your Look',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: onDark,
+          // Edge-to-edge content (drawn beneath transparent system bars)
+          Builder(
+            builder: (context) {
+              final padding = MediaQuery.of(context).padding;
+              return Padding(
+                padding: EdgeInsets.fromLTRB(24, padding.top + 8, 24, padding.bottom + 16),
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(Icons.lightbulb_outline, color: onDark, size: 36),
+                    ),
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Transform Your Look',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: onDark,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Your photos are processed securely by AI and never stored.',
-                      style: TextStyle(
-                          fontSize: 16,
-                          color: onDark.withOpacity(0.9)
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Your photos are processed securely by AI and never stored.',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color: onDark.withOpacity(0.9)
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  PrimaryButton(
-                      label: 'Agree & Continue',
-                      onPressed: _agreeAndContinue
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(height: 24),
+                    PrimaryButton(
+                        label: 'Agree & Continue',
+                        onPressed: _agreeAndContinue
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),

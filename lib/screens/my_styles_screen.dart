@@ -1,7 +1,6 @@
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
-import 'package:image_gallery_saver/image_gallery_saver.dart'; 
+import 'package:flutter/services.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/saved_style.dart';
@@ -18,6 +17,7 @@ enum _SortOption { newest, oldest, name }
 
 class _SearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
+
   const _SearchBar({required this.onChanged});
 
   @override
@@ -25,23 +25,29 @@ class _SearchBar extends StatelessWidget {
     return TextField(
       onChanged: onChanged,
       decoration: InputDecoration(
-        hintText: 'Search saved styles...',
+        hintText: 'Search...',
         prefixIcon: const Icon(Icons.search),
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 1,
+          ),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -50,12 +56,13 @@ class _SearchBar extends StatelessWidget {
 class _SortChips extends StatelessWidget {
   final _SortOption current;
   final ValueChanged<_SortOption> onChanged;
+
   const _SortChips({required this.current, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
+      spacing: 12,
       children: [
         _chip(context, label: 'Newest', value: _SortOption.newest),
         _chip(context, label: 'Oldest', value: _SortOption.oldest),
@@ -64,17 +71,25 @@ class _SortChips extends StatelessWidget {
     );
   }
 
-  Widget _chip(BuildContext context, {required String label, required _SortOption value}) {
+  Widget _chip(
+    BuildContext context, {
+    required String label,
+    required _SortOption value,
+  }) {
     final bool selected = value == current;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
       onSelected: (_) => onChanged(value),
-      selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-      side: BorderSide(
-        color: selected
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.outline,
+      showCheckmark: false,
+      selectedColor: Theme.of(context).colorScheme.primary,
+      labelStyle: TextStyle(
+        color: selected ? Theme.of(context).colorScheme.onPrimary : null,
+      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
     );
   }
@@ -112,9 +127,10 @@ class _StyleTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              flex: 3,
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -123,7 +139,10 @@ class _StyleTile extends StatelessWidget {
                     right: 8,
                     top: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(12),
@@ -137,41 +156,42 @@ class _StyleTile extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Saved • ${_formatDate(item.dateSaved)}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        //const SizedBox(height: 2),
+                        /*Text(
+                          'Saved • ${_formatDate(item.dateSaved)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),*/
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    _iconButton(context, Icons.download_rounded, onDownload),
-                    const SizedBox(width: 6),
-                    _iconButton(context, Icons.delete_outline_rounded, onDelete,
-                        color: Theme.of(context).colorScheme.error),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  _iconButton(context, Icons.download_rounded, onDownload),
+                  const SizedBox(width: 6),
+                  _iconButton(
+                    context,
+                    Icons.delete_outline_rounded,
+                    onDelete,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ],
               ),
             ),
           ],
@@ -180,7 +200,12 @@ class _StyleTile extends StatelessWidget {
     );
   }
 
-  Widget _iconButton(BuildContext context, IconData icon, VoidCallback onPressed, {Color? color}) {
+  Widget _iconButton(
+    BuildContext context,
+    IconData icon,
+    VoidCallback onPressed, {
+    Color? color,
+  }) {
     return Material(
       color: Theme.of(context).colorScheme.surface,
       shape: const CircleBorder(),
@@ -188,8 +213,12 @@ class _StyleTile extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Icon(icon, size: 20, color: color ?? Theme.of(context).colorScheme.onSurface),
+          padding: const EdgeInsets.all(4.0),
+          child: Icon(
+            icon,
+            size: 18,
+            color: color ?? Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ),
     );
@@ -243,7 +272,7 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
       name: 'Modern Asymmetry',
       dateSaved: DateTime.now().subtract(const Duration(days: 3)),
     ),
-     SavedStyle(
+    SavedStyle(
       id: '6',
       imagePath: 'assets/images/hairstyles/bald_m.webp',
       name: 'Sleek Bald Look',
@@ -270,7 +299,8 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
         final result = await ImageGallerySaver.saveImage(
           uint8List,
           quality: 90,
-          name: "${style.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}",
+          name:
+              "${style.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}",
         );
 
         if (!mounted) return;
@@ -280,12 +310,18 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save image: ${result?['errorMessage'] ?? 'Unknown error'}')),
+            SnackBar(
+              content: Text(
+                'Failed to save image: ${result?['errorMessage'] ?? 'Unknown error'}',
+              ),
+            ),
           );
         }
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving image: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving image: $e')));
       }
     } else {
       if (!mounted) return;
@@ -300,7 +336,9 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
           title: const Text('Delete Style?'),
           content: const Text('Are you sure you want to delete this style?'),
           actions: <Widget>[
@@ -309,7 +347,9 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
               onPressed: () => Navigator.of(context).pop(false),
             ),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
               child: const Text('Yes'),
               onPressed: () => Navigator.of(context).pop(true),
             ),
@@ -323,7 +363,9 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
         _savedStyles.removeWhere((style) => style.id == styleToDelete.id);
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${styleToDelete.name} deleted.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${styleToDelete.name} deleted.')));
     }
   }
 
@@ -334,38 +376,61 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
 
     // Determine crossAxisCount based on screen width
     final int crossAxisCount = (screenWidth > 600.0) ? 4 : 2;
-    const double childAspectRatio = 0.72;
+    // Compute tile width and a tight height that fits content (square image + info row)
+    const double horizontalPadding = 16.0; // from SliverPadding
+    const double crossSpacing = 16.0; // from grid delegate
+    final double tileWidth =
+        (screenWidth - (horizontalPadding * 2) - crossSpacing * (crossAxisCount - 1)) /
+            crossAxisCount;
+    // Image is square (AspectRatio 1.0) + approx 56px for text/actions row and padding
+    final double tileHeight = tileWidth + 56.0;
 
     final List<SavedStyle> filtered = _applyFilters(_savedStyles);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('AI Hair Styler'),
-        centerTitle: false,
-      ),
       body: RefreshIndicator(
-        onRefresh: () async => await Future.delayed(const Duration(milliseconds: 600)),
+        onRefresh: () async =>
+            Future.delayed(const Duration(milliseconds: 600)),
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
           slivers: <Widget>[
+            SliverAppBar(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              pinned: false,
+              floating: true,
+              elevation: 0,
+              // Using flexible space to have content that scrolls away.
+              flexibleSpace: FlexibleSpaceBar(
+                background: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Saved Styles',
+                        style: textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Browse, share or manage your favorite looks.',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Height of the flexible space area.
+              expandedHeight: 110,
+            ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Saved Styles',
-                      style: textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Browse, share or manage your favorite looks.',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     _SearchBar(
                       onChanged: (v) => setState(() => _query = v.trim()),
                     ),
@@ -389,7 +454,9 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
                       Icon(
                         Icons.style_outlined,
                         size: 72,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withOpacity(0.5),
                       ),
                       const SizedBox(height: 16),
                       Text('No matching styles', style: textTheme.titleMedium),
@@ -406,35 +473,38 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: crossAxisCount,
-                    mainAxisSpacing: 16.0,
-                    crossAxisSpacing: 16.0,
-                    childAspectRatio: childAspectRatio,
+                    mainAxisSpacing: crossSpacing,
+                    crossAxisSpacing: crossSpacing,
+                    mainAxisExtent: tileHeight,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) {
-                      final item = filtered[index];
-                      return _StyleTile(
-                        item: item,
-                        onView: () {
-                          Navigator.pushNamed(
-                            context,
-                            ViewImageScreen.routeName,
-                            arguments: {
-                              'imagePath': item.imagePath,
-                              'title': item.name,
-                            },
-                          );
-                        },
-                        onDownload: () => _handleDownload(item),
-                        onDelete: () => _handleDelete(item),
-                      );
-                    },
-                    childCount: filtered.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((
+                    BuildContext context,
+                    int index,
+                  ) {
+                    final item = filtered[index];
+                    return _StyleTile(
+                      item: item,
+                      onView: () {
+                        Navigator.pushNamed(
+                          context,
+                          ViewImageScreen.routeName,
+                          arguments: {
+                            'imagePath': item.imagePath,
+                            'title': item.name,
+                          },
+                        );
+                      },
+                      onDownload: () => _handleDownload(item),
+                      onDelete: () => _handleDelete(item),
+                    );
+                  }, childCount: filtered.length),
                 ),
               ),
           ],
@@ -455,10 +525,11 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
         result.sort((a, b) => a.dateSaved.compareTo(b.dateSaved));
         break;
       case _SortOption.name:
-        result.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        result.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
     }
     return result;
   }
-
 }

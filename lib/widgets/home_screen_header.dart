@@ -14,7 +14,7 @@ class HomeScreenHeader extends StatelessWidget {
             width: 36,
             height: 36,
             child: ClipRRect(
-              child: Image.asset('assets/images/ic_launcher-playstore.png'),
+              child: Image.asset('assets/images/logo.png'),
             ),
           ),
           const SizedBox(width: 10),

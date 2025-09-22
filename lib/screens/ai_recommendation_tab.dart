@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/image_picker_service.dart';
@@ -33,14 +32,20 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       });
       if (image != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image loaded successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Image loaded successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isPicking = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error accessing gallery: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error accessing gallery: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -57,14 +62,20 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       });
       if (image != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photo taken successfully!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Photo taken successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isPicking = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error accessing camera: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error accessing camera: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -79,63 +90,73 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
+    return SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const HomeScreenHeader(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.auto_awesome, size: 22),
-                    const SizedBox(width: 8),
-                    Text('Try Best AI Recommended Look', style: Theme.of(context).textTheme.headlineSmall),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'For best results, use a clear, front-facing photo with your hair pulled back.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.auto_awesome_outlined, size: 28),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try Best AI Recommended Look',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
                       ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                _InstructionCard(),
-                const SizedBox(height: 20),
-                _isPicking
-                    ? const Center(child: CircularProgressIndicator())
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Expanded(
-                            child: OutlinedPrimaryButton(
-                              label: 'Camera',
-                              icon: Icons.photo_camera_outlined,
-                              onPressed: _pickFromCamera,
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'For best results, use a clear, front-facing photo with your hair pulled back.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  _InstructionCard(),
+                  const SizedBox(height: 24),
+                  _isPicking
+                      ? const Center(child: CircularProgressIndicator())
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: OutlinedPrimaryButton(
+                                label: 'Camera',
+                                icon: Icons.photo_camera_outlined,
+                                onPressed: _pickFromCamera,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: PrimaryButton(
-                              label: 'Photo',
-                              icon: Icons.photo_library_outlined,
-                              onPressed: _pickFromGallery,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: PrimaryButton(
+                                label: 'Photo',
+                                icon: Icons.photo_library_outlined,
+                                onPressed: _pickFromGallery,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                const SizedBox(height: 16),
-                _PrivacyNote(),
-              ],
+                          ],
+                        ),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
+            child: _PrivacyNote(),
           ),
         ],
       ),
@@ -148,36 +169,36 @@ class _InstructionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 32,horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Theme.of(context).dividerColor,
           style: BorderStyle.solid, // Flutter lacks dotted; keep subtle border
           width: 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.person_outline, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Clear frontal face shot',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'No glasses or hats',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                ),
-              ],
+          Icon(Icons.account_circle, size: 54,color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+          const SizedBox(height: 12),
+          Text(
+            'Clear frontal face shot',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'No glasses or hats',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withOpacity(0.7)
             ),
           ),
         ],
@@ -189,26 +210,31 @@ class _InstructionCard extends StatelessWidget {
 class _PrivacyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          'Your photo is used solely for generating hairstyle recommendations and is not stored or used for any other purpose.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-              ),
-          textAlign: TextAlign.center,
-        ),
-        TextButton(
-          onPressed: () => Navigator.pushNamed(context, PrivacyPolicyScreen.routeName),
-          child: const Text(
-            'Privacy Policy',
-            style: TextStyle(decoration: TextDecoration.underline),
+    final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),fontSize: 12
+        );
+    return Text.rich(
+      TextSpan(
+        text:
+            'Your photo is used solely for generating hairstyle recommendations and is not stored or used for any other purpose. ',
+        style: baseStyle,
+        children: [
+          TextSpan(
+            text: 'Privacy Policy',
+            style: baseStyle?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+              decoration: TextDecoration.underline,
+              fontWeight: FontWeight.w600,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => Navigator.pushNamed(
+                    context,
+                    PrivacyPolicyScreen.routeName,
+                  ),
           ),
-        ),
-      ],
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }
-
-

@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen> {
             SizedBox(
               width: 96,
               height: 96,
-              child: Image.asset('assets/images/ic_launcher-playstore.png'),
+              child: Image.asset('assets/images/logo.png'),
             ),
             const SizedBox(height: 24),
             Text(
