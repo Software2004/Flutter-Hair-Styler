@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hair_styler/theme/app_styles.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../models/user_data.dart';
+import '../services/watermark_util.dart';
 
 class ViewImageScreen extends StatefulWidget {
   static const String routeName = '/view-image';
@@ -23,8 +27,19 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
 
   Future<void> _share() async {
     try {
+      final plan = context.read<UserProvider>().plan;
       if (widget.imagePath.startsWith('/')) {
-        await Share.shareXFiles([XFile(widget.imagePath)], text: widget.title);
+        Uint8List bytes = await File(widget.imagePath).readAsBytes();
+        if (plan == SubscriptionPlanType.free) {
+          bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
+          final Directory tempDir = await getTemporaryDirectory();
+          final String tempPath = '${tempDir.path}/shared_image_${DateTime.now().millisecondsSinceEpoch}.png';
+          final File file = File(tempPath);
+          await file.writeAsBytes(bytes, flush: true);
+          await Share.shareXFiles([XFile(file.path)], text: widget.title);
+        } else {
+          await Share.shareXFiles([XFile(widget.imagePath)], text: widget.title);
+        }
       } else {
         // Copy asset to a temporary file so we can share the image with caption
         final ByteData data = await rootBundle.load(widget.imagePath);
@@ -33,10 +48,11 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
         final String tempPath =
             '${tempDir.path}/shared_image_${DateTime.now().millisecondsSinceEpoch}.$extension';
         final File file = File(tempPath);
-        await file.writeAsBytes(
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-          flush: true,
-        );
+        Uint8List bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        if (plan == SubscriptionPlanType.free) {
+          bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
+        }
+        await file.writeAsBytes(bytes, flush: true);
         await Share.shareXFiles([XFile(file.path)], text: widget.title);
       }
     } catch (e) {
@@ -107,10 +123,32 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
   }
 
   Widget _buildImageWidget() {
-    if (widget.imagePath.startsWith('/')) {
-      return Image.file(File(widget.imagePath), fit: BoxFit.contain);
-    }
-    return Image.asset(widget.imagePath, fit: BoxFit.contain);
+    final plan = context.watch<UserProvider>().plan;
+    final isFree = plan == SubscriptionPlanType.free;
+    final image = widget.imagePath.startsWith('/')
+        ? Image.file(File(widget.imagePath), fit: BoxFit.contain)
+        : Image.asset(widget.imagePath, fit: BoxFit.contain);
+    if (!isFree) return image;
+    return Stack(
+      children: [
+        image,
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              'AI Hair Styler',
+              style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _roundAction(BuildContext context, {required IconData icon, required VoidCallback onTap}) {

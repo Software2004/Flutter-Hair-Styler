@@ -37,4 +37,18 @@ class SavedStyle {
   String toString() {
     return 'SavedStyle{id: $id, name: $name, imagePath: $imagePath, dateSaved: $dateSaved}';
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'imagePath': imagePath,
+        'name': name,
+        'dateSaved': dateSaved.toIso8601String(),
+      };
+
+  factory SavedStyle.fromJson(Map<String, dynamic> json) => SavedStyle(
+        id: json['id'] as String,
+        imagePath: json['imagePath'] as String,
+        name: json['name'] as String,
+        dateSaved: DateTime.parse(json['dateSaved'] as String),
+      );
 }

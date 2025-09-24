@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart' as firebase_core;
+import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
@@ -12,12 +14,19 @@ import 'screens/signup_screen.dart';
 import 'screens/privacy_policy_screen.dart';
 import 'screens/terms_of_service_screen.dart';
 import 'screens/view_image_screen.dart';
+import 'providers/user_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  if (Firebase.apps.isEmpty) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } on firebase_core.FirebaseException catch (e) {
+      if (e.code != 'duplicate-app') rethrow;
+    }
+  }
   runApp(const MyApp());
 }
 
@@ -27,7 +36,11 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
+      child: MaterialApp(
       title: 'AI Hair Styler',
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(GoogleFonts.roboto),
@@ -49,6 +62,7 @@ class MyApp extends StatelessWidget {
         PrivacyPolicyScreen.routeName: (_) => const PrivacyPolicyScreen(),
         TermsOfServiceScreen.routeName: (_) => const TermsOfServiceScreen(),
       },
+    ),
     );
   }
 }

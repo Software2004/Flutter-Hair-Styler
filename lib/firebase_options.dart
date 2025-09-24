@@ -58,5 +58,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '505492968767',
     projectId: 'flutter-hair-styler',
     storageBucket: 'flutter-hair-styler.firebasestorage.app',
+    databaseURL: 'https://flutter-hair-styler-default-rtdb.asia-southeast1.firebasedatabase.app/',
   );
 }

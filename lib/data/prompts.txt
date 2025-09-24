@@ -1,0 +1,495 @@
+
+E/flutter (13459): [ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: [core/duplicate-app] A Firebase App named "[DEFAULT]" already exists
+E/flutter (13459): #0      MethodChannelFirebase.initializeApp (package:firebase_core_platform_interface/src/method_channel/method_channel_firebase.dart:133:11)
+E/flutter (13459): <asynchronous suspension>
+E/flutter (13459): #1      Firebase.initializeApp (package:firebase_core/src/firebase.dart:66:31)
+E/flutter (13459): <asynchronous suspension>
+E/flutter (13459): #2      main (package:flutter_hair_styler/main.dart:20:3)
+E/flutter (13459): <asynchronous suspension>
+E/flutter (13459):
+
+
+=========================================
+
+
+https://flutter-hair-styler-default-rtdb.asia-southeast1.firebasedatabase.app/
+
+
+
+=================================================
+
+
+Project Context: You are an expert Flutter/Dart developer implementing a comprehensive subscription and credit management system for a Flutter application using Firebase. The system must be secure, reliable, and provide a seamless user experience.
+
+Primary Task: Integrate a credit/subscription system across the entire app (home_screen.dart, ai_recommendation_tab.dart, account_screen.dart, manage_subscription_screen.dart) using Firebase Realtime Database and Firebase Auth, with a secure server-side truth for billing cycles.
+
+Specific Requirements:
+
+1. Data Modeling & Firebase Structure:
+
+    User Identifier: Use the user's Firebase Auth UID as the primary key. This persists across app reinstalls on the same device, unlike a device ID.
+
+    Firebase Realtime Database Schema: Design the database structure under users/$uid/:
+
+json
+
+{
+  "subscription": {
+    "plan": "free", // "free", "standard", "pro"
+    "purchaseDate": "2024-01-01T00:00:00Z", // ISO String, critical for renewal
+    "status": "active" // "active", "expired"
+  },
+  "credits": {
+    "remaining": 178,
+    "lastUpdated": "2024-01-15T10:30:00Z" // ISO String
+  }
+}
+
+    Server-Side Logic (Critical): The renewal logic must not depend on the user's device time. This requires a Cloud Function (Firebase Function) that runs on a schedule (e.g., daily) to check each user's purchaseDate and reset remaining credits based on the plan's monthly allowance. The app will read the result of this server-side calculation.
+
+2. Application Plans & Tiers:
+
+    Free Tier: 2 credits/month. Generated images have a watermark.
+
+    Standard Plan ($4.99/month): 10 credits/month. No watermark, no ads.
+
+    Pro Plan ($9.99/month): 25 credits/month. No watermark, no ads, early access.
+
+    Credit Packs (One-time purchase):
+
+        10 credits for $2.99
+
+        50 credits for $12.99
+
+3. Real-Time Credit Display & Consumption:
+
+    State Management: Implement a centralized state management solution (e.g., Provider or Riverpod) to hold the current user's UserData (containing plan and remainingCredits). This state should be accessible from all screens.
+
+    Data Fetching: On app startup and user login, fetch the user's data from the users/$uid path in Firebase Realtime Database.
+
+    Real-Time Listener: Attach a onValue listener to the users/$uid path to update the app's state in real-time whenever credits or the plan changes on the server.
+
+    UI Integration:
+
+        home_screen.dart & ai_recommendation_tab.dart: Display the remainingCredits from the global state in the header.
+
+        account_screen.dart: Display the current plan name and remainingCredits.
+
+        manage_subscription_screen.dart: Display the current plan clearly and list the available upgrades.
+
+    Credit Consumption: When a user generates a hairstyle, immediately:
+
+        Check if remainingCredits > 0.
+
+        If yes, decrement the credit count locally in the app state.
+
+        Perform a transaction on the users/$uid/credits/remaining node in Firebase to atomically decrement the value, preventing race conditions.
+
+4. Authentication-Gated Purchases:
+
+    Flow: Intercept any attempt to purchase a plan or credit pack from the manage_subscription_screen.dart.
+
+    Check Authentication: Before showing payment options, check if FirebaseAuth.instance.currentUser is null (user is anonymous).
+
+    Redirect to Login: If the user is anonymous, navigate to a login/signup screen (AuthScreen).
+
+    Return Flow: After successful authentication on the AuthScreen, navigate the user back to the ManageSubscriptionScreen where they can now proceed with the payment using their new authenticated UID.
+
+5. Payment Integration (High-Level):
+
+    Package: Use the in_app_purchase package to handle payments via Google Play Billing.
+
+    Product Configuration: Define the product IDs in the Google Play Console that correspond to your plans (standard_monthly, pro_monthly, credit_pack_10, credit_pack_50).
+
+    Purchase Verification: Upon a successful purchase, verify the receipt with your server. Then, update the user's data in Firebase Realtime Database:
+
+        For a subscription plan: Update the subscription.plan and subscription.purchaseDate.
+
+        For a credit pack: Perform a transaction to add the purchased credits to credits.remaining.
+
+Implementation Steps Summary:
+
+    Model: Create Dart classes UserData, SubscriptionPlan.
+
+    State Management: Set up a UserProvider (using Provider/Riverpod) to manage and broadcast the user's data.
+
+    Firebase Listener: In the provider, attach a real-time listener to the user's node in the Firebase database.
+
+    UI Updates: Modify all relevant screens (home_screen.dart, account_screen.dart, etc.) to consume data from the UserProvider and display the user's plan and credits.
+
+    Auth Check: Implement the authentication gate in the purchase flow within manage_subscription_screen.dart.
+
+    Credit Consumption: Implement the transaction-based credit deduction logic in the image generation method.
+
+Security Note: The credit reset logic must be implemented in a Firebase Cloud Function to prevent users from manipulating their device clock to get free credits. The app should only read the credit value calculated by the server.
+
+
+
+
+========================================================================
+
+
+
+object StyleDataProvider {
+
+    fun getStyleCategories(): List<StyleCategory> {
+        return listOf(
+            StyleCategory(
+                name = "Male", styles = getMaleStyles()
+            ), StyleCategory(
+                name = "Female", styles = getFemaleStyles()
+            ), StyleCategory(
+                name = "Male Kids", styles = getMaleKidStyles()
+            ), StyleCategory(
+                name = "Female Kids", styles = getFemaleKidStyles()
+            )
+        )
+    }
+
+    val predefinedMale = listOf(
+        HairstyleModel(
+            name = "Undercut",
+            imagePath = R.drawable.undercut_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to a sharp undercut: very short and faded on the sides and back, with a distinct, harsh disconnect from the long hair on top. His face, eyes, skin, and expression must remain completely unchanged from the original image. Only the hairstyle is modified."
+        ),
+        HairstyleModel(
+            name = "Pompadour",
+            imagePath = R.drawable.popadour_m,
+            isAIGenerated = false,
+            prompt = "Alter this man's hairstyle to a classic pompadour. The hair is voluminous, brushed up and back from the forehead with high volume on top, and kept short on the sides. His face, facial features, skin texture, and expression must be identical to the original. Change nothing but the hair."
+        ),
+        HairstyleModel(
+            name = "Fade (Skin Fade)",
+            imagePath = R.drawable.fade_m,
+            isAIGenerated = false,
+            prompt = "Give this man a skin fade haircut. The hair is faded down to the skin around the ears and back of the head, with a gradual blend from short to skin. Ensure his face, expression, and all other features remain exactly as they are. Only the hairstyle is altered."
+        ),
+        HairstyleModel(
+            name = "Quiff",
+            imagePath = R.drawable.quiff_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hair to a textured quiff. The hair is brushed upward and back from the face, voluminous and textured on top, with a slight curl at the front. His exact face, expression, and skin details must be preserved meticulously. Isolate the change to the hairstyle only."
+        ),
+        HairstyleModel(
+            name = "Side Part",
+            imagePath = R.drawable.side_part_m,
+            isAIGenerated = false,
+            prompt = "Modify this man's hairstyle to a neat side part. The hair is neatly combed with a deep, sharp part and swept to one side for a classic, clean look. His face, jawline, eyes, and skin are completely unchanged. Only the hairstyle is altered."
+        ),
+        HairstyleModel(
+            name = "Crew Cut",
+            imagePath = R.drawable.crew_cut_m,
+            isAIGenerated = false,
+            prompt = "Give this man a practical crew cut: very short and tapered on the sides and back, with the top slightly longer. It is critical that his facial features, skin tone, and expression are not altered in any way. Only replace the hairstyle."
+        ),
+        HairstyleModel(
+            name = "French Crop",
+            imagePath = R.drawable.french_crop_m,
+            isAIGenerated = false,
+            prompt = "Alter this man's hairstyle to a French crop: short hair on top with a straight, horizontal fringe (bangs) at the front and short, tapered sides. His face, eyes, and all unique features must remain pixel-perfect from the original image."
+        ),
+        HairstyleModel(
+            name = "Slicked Back",
+            imagePath = R.drawable.slicked_back_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hair to a slicked-back style. The hair is combed back smoothly and neatly from the face using product for a glossy finish. Do not change his face, pose, or any other characteristic. Hairstyle only."
+        ),
+        HairstyleModel(
+            name = "Textured Crop",
+            imagePath = R.drawable.textured_crop,
+            isAIGenerated = false,
+            prompt = "Give this man a textured crop haircut. The top has short, choppy layers with lots of texture and movement, featuring a messy fringe, while the sides are kept short. His face, expression, and all other features must remain perfectly identical."
+        ),
+        HairstyleModel(
+            name = "Man Bun",
+            imagePath = R.drawable.man_bun_m,
+            isAIGenerated = false,
+            prompt = "Modify this man's hairstyle so his long hair is pulled back and tied into a neat bun at the back of the head, allowing some loose strands to frame the face. His face, skin, and expression must be kept completely identical to the original. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Afro",
+            imagePath = R.drawable.afro_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to a full, natural afro. The hair grows in a large, rounded shape from the scalp. The subject's face, skin, eye color, and everything else about his appearance must be kept perfectly identical. Only the hairstyle is modified."
+        ),
+        HairstyleModel(
+            name = "Curly Fringe",
+            imagePath = R.drawable.curly_fringe,
+            isAIGenerated = false,
+            prompt = "Alter this man's hairstyle to have a head full of loose, defined curls, with longer curls hanging down as a fringe over the forehead. His face, facial features, skin texture, and expression must be identical to the original. Change nothing but the hair."
+        ),
+        HairstyleModel(
+            name = "Buzz Cut",
+            imagePath = R.drawable.buzz_off_m,
+            isAIGenerated = false,
+            prompt = "Give this man a very short, uniform buzz cut hairstyle. The hair is cut to the scalp with clippers, all one length. Ensure his face, eyes, nose, skin, and expression remain completely unchanged. Only the hairstyle is modified."
+        ),
+        HairstyleModel(
+            name = "Dreadlocks",
+            imagePath = R.drawable.dread_locks_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to have dreadlocks. His hair is matted and twisted into ropelike locks, hanging down naturally. It is critical that his facial structure, skin tone, and expression remain completely unchanged from the original image. Modify only the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Comb Over",
+            imagePath = R.drawable.comb_over,
+            isAIGenerated = false,
+            prompt = "Modify this man's hairstyle to a comb-over. The longer hair on top is combed over to one side, often with a fade on the other. His adorable face, eyes, and expression are completely unchanged. Only the hairstyle is altered."
+        ),
+        HairstyleModel(
+            name = "Mullet",
+            imagePath = R.drawable.mullet_m,
+            isAIGenerated = false,
+            prompt = "Give this man a mullet haircut: short on the top and sides, but long in the back. His exact face, expression, and youthful cheeks must be preserved. Isolate the change only to this haircut."
+        ),
+        HairstyleModel(
+            name = "Bro Flow",
+            imagePath = R.drawable.bro_flow_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hair to long, wavy 'bro flow' that parts in the middle and flows down to the shoulders for an effortless, casual look. His face, jawline, eyes, and skin are completely unchanged from the original image. Only the hairstyle is altered."
+        ),
+        HairstyleModel(
+            name = "Taper Fade",
+            imagePath = R.drawable.taper_fade,
+            isAIGenerated = false,
+            prompt = "Alter this man's hairstyle to a taper fade. The hair gradually gets shorter down the sides and back, ending neatly at the neckline. His face, expression, and all other characteristics must remain perfectly identical. Only the haircut is changed."
+        ),
+        HairstyleModel(
+            name = "Hard Part",
+            imagePath = R.drawable.hard_part_m,
+            isAIGenerated = false,
+            prompt = "Give this man a sharp, hard part hairstyle. A distinct, shaved-in line creates a severe part, complemented by a fade or undercut. Preserve his face, eyebrows, skin texture, and expression exactly as they are. Only change the hair."
+        ),
+        HairstyleModel(
+            name = "Ivy League",
+            imagePath = R.drawable.ivvy_league_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to an Ivy League cut: short, side-parted, and neatly tapered on the back and sides, with the top slightly longer and textured. His face, eyes, and unique features must remain completely unchanged from the original. Only the hairstyle is modified."
+        ),
+        HairstyleModel(
+            name = "Bleached Spiky Hair",
+            imagePath = R.drawable.silver_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to spiky, messy hair that has been bleached platinum blonde. The spikes are created with product for a textured, upright look. IMPORTANT: While the hair color changes, his natural skin tone, eyebrow color, and all facial features must stay completely identical."
+        ),
+        HairstyleModel(
+            name = "Bald Head",
+            imagePath = R.drawable.bald_m,
+            isAIGenerated = false,
+            prompt = "Make this man completely bald, as if his head has been freshly shaved, showing a slight shadow of hair follicles. The shape of his head and his hairline should be visible. Preserve his face, eyebrows, skin texture, and expression exactly as they are in the original. Only remove the hair."
+        ),
+        HairstyleModel(
+            name = "Frosted",
+            imagePath = R.drawable.frosted_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to have short, spiky hair with frosted blonde tips on the ends. The base hair color should remain his natural shade, with only the ends lightened. His face, skin, expression, and all other features must be kept perfectly identical to the original. Only the hairstyle and hair tips are modified."
+        ),
+        HairstyleModel(
+            name = "Viking UnderCut",
+            imagePath = R.drawable.viking_m,
+            isAIGenerated = false,
+            prompt = "Change this man's hairstyle to a Viking undercut: completely shaved on the sides and back, with the remaining long hair on top intricately braided into a single, thick braid running from the forehead to the nape of the neck. His face, beard (if present), skin, and expression must remain perfectly identical to the original image. Only the hairstyle is to be altered."
+        ),
+    )
+    val predefinedFemale = listOf(
+        HairstyleModel(
+            name = "Pixie Cut",
+            imagePath = R.drawable.pixie_cut,
+            isAIGenerated = false,
+            prompt = "Change this woman's hairstyle to a short, textured pixie cut. The hair is cropped close on the back and sides with longer, choppy layers on top. Her face, eyes, nose, skin, and expression must remain completely unchanged from the original image. Only the hairstyle is modified."
+        ),
+        HairstyleModel(
+            name = "Long Hollywood Waves",
+            imagePath = R.drawable.long_hollywood,
+            isAIGenerated = false,
+            prompt = "Alter this woman's hair to long, voluminous Hollywood waves. The hair should be shoulder-length or longer, with deep, soft, S-shaped waves and a side part. Her face, facial features, skin texture, and expression must be identical to the original. Change nothing but the hair."
+        ),
+        HairstyleModel(
+            name = "Afro",
+            imagePath = R.drawable.afro_female,
+            isAIGenerated = false,
+            prompt = "Give this woman a full, natural afro hairstyle, accessorized with a stylish fabric headband wrapped around the crown. The hair is rounded and voluminous. It is critical that her facial features, skin tone, and expression are not altered in any way. Only replace the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Asymmetrical Bob",
+            imagePath = R.drawable.asymmetrical_bob,
+            isAIGenerated = false,
+            prompt = "Change this woman's hairstyle to a sharp, asymmetrical bob. The hair is cut short in the back and angles dramatically longer toward the front, ending at jaw-length on one side. Her exact face, expression, and skin details must be preserved. Isolate the change to the haircut."
+        ),
+        HairstyleModel(
+            name = "Space Buns",
+            imagePath = R.drawable.space_buns,
+            isAIGenerated = false,
+            prompt = "Modify this woman's hairstyle into two space buns. Her hair is parted down the middle and sectioned into two bun shapes high on the back of her head. Her face, jawline, eyes, and skin are completely unchanged from the original image. Only the hairstyle is altered."
+        ),
+        HairstyleModel(
+            name = "Sleek High Ponytail",
+            imagePath = R.drawable.sleek_high_ponytail,
+            isAIGenerated = false,
+            prompt = "Give this woman a sleek, high ponytail. Her hair is pulled tightly away from her face, secured high on the crown, and hangs straight down with a smooth, glossy finish. Do not change her face, makeup, pose, or any other characteristic. Hairstyle only."
+        ),
+        HairstyleModel(
+            name = "Shag Cut",
+            imagePath = R.drawable.shag_cut,
+            isAIGenerated = false,
+            prompt = "Alter this woman's hairstyle to a modern shag cut with heavy layers and curtain bangs that frame her face. The look should be textured and effortless. Her face, eye color, and all other features must be kept perfectly identical. Only modify the cut and style of the hair."
+        ),
+        HairstyleModel(
+            name = "Box Braids",
+            imagePath = R.drawable.box_braids,
+            isAIGenerated = false,
+            prompt = "Change this woman's hairstyle to medium-length box braids that fall just past her shoulders. The braids are neat and uniform. Her facial structure, skin tone, eyes, and expression must remain completely unchanged from the original image. Modify only the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Edgy Undercut",
+            imagePath = R.drawable.edgy_undercut,
+            isAIGenerated = false,
+            prompt = "Give this woman an edgy undercut hairstyle: the sides and back of her head are completely shaved, while the hair on top remains long and is swept over to one side. Preserve her face, eyebrows, skin texture, and expression exactly as they are. Only change the hair."
+        ),
+        HairstyleModel(
+            name = "Blunt Micro Bangs",
+            imagePath = R.drawable.blunt_micro,
+            isAIGenerated = false,
+            prompt = "Change this woman's hairstyle to a long bob (lob) cut to a blunt line at the collarbone, paired with straight, micro bangs that cut across the forehead. Her face, expression, and all other characteristics must remain pixel-perfect from the original. Only the haircut is altered."
+        ),
+    )
+
+    val predefinedFemaleKids = listOf(
+        HairstyleModel(
+            name = "Pigtails",
+            imagePath = R.drawable.hight_pigtails,
+            isAIGenerated = false,
+            prompt = "Change this little girl's hairstyle into two high, bouncy pigtails secured with bright ribbon bows at the base. The hair should be parted neatly down the middle. Ensure her sweet face, adorable expression, and all her features remain completely unchanged from the original image. Only modify the hairstyle to be playful and cute."
+        ),
+        HairstyleModel(
+            name = "Messy Bun",
+            imagePath = R.drawable.messy_bun,
+            isAIGenerated = false,
+            prompt = "Alter this child's hairstyle to a single, messy bun on the top of her head, with soft, wispy bangs falling across her forehead and loose strands framing her face. Her youthful face, innocent expression, and skin must stay perfectly identical. Change nothing but the hair to look playful and effortless."
+        ),
+        HairstyleModel(
+            name = "French Braid Crown",
+            imagePath = R.drawable.french_braid_crown,
+            isAIGenerated = false,
+            prompt = "Give this young girl an elegant French braid crown hairstyle, where a braid is woven from one temple to the other like a headband, with the rest of her hair down and flowing. It is critical that her cute facial features, joyful expression, and age are not altered in any way. Only replace the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Bob with Blunt",
+            imagePath = R.drawable.blunt_cut,
+            isAIGenerated = false,
+            prompt = "Change this little girl's hair to a short, chin-length bob cut into a perfectly blunt line all around. The style should be simple, neat, and swingy. Her exact face, expression, and youthful cheeks must be preserved meticulously. Isolate the change only to this cute haircut."
+        ),
+        HairstyleModel(
+            name = "Puffy Half-Up",
+            imagePath = R.drawable.puffy_half_up,
+            isAIGenerated = false,
+            prompt = "Modify this girl's hairstyle into a puffy half-up, half-down look. The top section of her hair is gathered high with a colorful scrunchie, creating volume, while the rest flows down. Her adorable face, eyes, and expression are completely unchanged. Only the hairstyle is altered to be fun and cheerful."
+        ),
+        HairstyleModel(
+            name = "Space Buns",
+            imagePath = R.drawable.space_buns_fd,
+            isAIGenerated = false,
+            prompt = "Alter this young girl's hairstyle into two playful space buns, one on each side of her head, with a clean center part. The buns should be neat and round. Her sweet face, adorable expression, and all her features must remain completely identical from the original image. Only modify the hairstyle to be fun and trendy."
+        ),
+        HairstyleModel(
+            name = "Long Layers with Side Bangs",
+            imagePath = R.drawable.long_layers_side_bangs_fd,
+            isAIGenerated = false,
+            prompt = "Change this little girl's hairstyle to long hair with soft, face-framing layers and gentle side-swept bangs that fall just above her eyebrows. The overall look should be flowing and natural. Ensure her youthful face, innocent expression, and skin are preserved perfectly. Change nothing but the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Wavy Bob with Headband",
+            imagePath = R.drawable.wavy_bob_with_headband_fd,
+            isAIGenerated = false,
+            prompt = "Modify this girl's hair to a chin-length, wavy bob that she wears with a wide, fabric headband pushing her hair away from her face. The waves should be soft and loose. Her exact face, expression, and youthful cheeks must be preserved meticulously. Isolate the change only to this cute, accessorized haircut."
+        ),
+    )
+
+
+    val predefinedMaleKids = listOf(
+        HairstyleModel(
+            name = "Classic Crew Cut",
+            imagePath = R.drawable.classic_crew_cut,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a classic, with a short, practical crew cut, tapered on the sides and back. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Textured Crop with Fringe",
+            imagePath = R.drawable.textured_crop_with_fringe_child,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a classic,with short, textured hair on top with a messy fringe. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Side Part",
+            imagePath = R.drawable.side_part_child,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a neatly combed hair and a sharp side part. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Spiky Hair",
+            imagePath = R.drawable.spiky_hair_child,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a short hair styled into playful, textured spikes with gel. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Fade with Design",
+            imagePath = R.drawable.fade_with_design_child,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a hort fade haircut on the sides with a simple shaved-in design. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Caesar Cut",
+            imagePath = R.drawable.caesar_cut_child,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a short horizontal straight-across fringe and a flat top. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Classic Bowl Cut",
+            imagePath = R.drawable.classic_bowl,
+            isAIGenerated = false,
+            prompt = "Change this young boy's hairstyle to a classic, straight-around bowl cut. The hair should be of even length all around, forming a neat, helmet-like shape with blunt bangs. Ensure his cute, youthful face, expression, and all his features remain completely unchanged from the original image. Only modify the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Spiky Textured",
+            imagePath = R.drawable.spiky_textured,
+            isAIGenerated = false,
+            prompt = "Alter this boy's hairstyle to short, spiky, textured hair that looks like it has been styled with gel for a playful, piecey look. The spikes should be uneven and stand upright. His youthful face, innocent expression, and skin must stay perfectly identical. Change nothing but the hair."
+        ),
+        HairstyleModel(
+            name = "Curly Afro Puff",
+            imagePath = R.drawable.curly_afro,
+            isAIGenerated = false,
+            prompt = "Give this young boy a short, curly afro puff hairstyle. His natural curls should be full and rounded, creating a soft, voluminous shape. It is critical that his adorable facial features, cheerful expression, and age are not altered in any way. Only replace the hairstyle."
+        ),
+        HairstyleModel(
+            name = "Side-Swept Fringe",
+            imagePath = R.drawable.side_swept_fringe,
+            isAIGenerated = false,
+            prompt = "Change this boy's hair to a crisp side-swept style. Create a sharp hard part on one side, with the hair on top brushed over to the other side. The sides should be short and neat. His exact face, expression, and youthful cheeks must be preserved. Isolate the change only to this haircut."
+        ),
+        HairstyleModel(
+            name = "Messy Surfer Hair",
+            imagePath = R.drawable.messy_surface_hair,
+            isAIGenerated = false,
+            prompt = "Modify this kid's hairstyle to look like long, messy, surfer hair. It should be sun-kissed and look windswept, falling just above the shoulders with a natural, textured part. His playful face, eyes, and expression are completely unchanged. Only the hairstyle is altered to look carefree and fun."
+        ),
+    )
+
+    private fun getMaleStyles(): List<StyleItem> {
+        return predefinedMale.map { StyleItem(it.name, it.imagePath as Int, it.prompt) }
+    }
+
+    private fun getFemaleStyles(): List<StyleItem> {
+        return predefinedFemale.map { StyleItem(it.name, it.imagePath as Int, it.prompt) }
+    }
+
+    private fun getFemaleKidStyles(): List<StyleItem> {
+        return predefinedFemaleKids.map { StyleItem(it.name, it.imagePath as Int, it.prompt) }
+    }
+
+    private fun getMaleKidStyles(): List<StyleItem> {
+        return predefinedMaleKids.map { StyleItem(it.name, it.imagePath as Int, it.prompt) }
+    }
+
+}

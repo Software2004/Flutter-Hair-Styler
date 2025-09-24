@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/saved_style.dart';
+import '../services/saved_styles_store.dart';
 import 'view_image_screen.dart';
 
 class MyStylesScreen extends StatefulWidget {
@@ -134,7 +136,7 @@ class _StyleTile extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(item.imagePath, fit: BoxFit.cover),
+                  _buildImage(item),
                   Positioned(
                     right: 8,
                     top: 8,
@@ -183,7 +185,7 @@ class _StyleTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _iconButton(context, Icons.download_rounded, onDownload),
+                  _iconButton(context, Icons.save_alt_rounded, onDownload),
                   const SizedBox(width: 6),
                   _iconButton(
                     context,
@@ -196,6 +198,31 @@ class _StyleTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImage(SavedStyle item) {
+    if (item.imagePath.startsWith('/')) {
+      return Image.file(
+        File(item.imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stack) => _errorThumb(context),
+      );
+    }
+    return Image.asset(
+      item.imagePath,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stack) => _errorThumb(context),
+    );
+  }
+
+  Widget _errorThumb(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceVariant,
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -241,50 +268,22 @@ class _StyleTile extends StatelessWidget {
 class _MyStylesScreenState extends State<MyStylesScreen> {
   String _query = '';
   _SortOption _sortOption = _SortOption.newest;
-  final List<SavedStyle> _savedStyles = [
-    SavedStyle(
-      id: '1',
-      imagePath: 'assets/images/hairstyles/afro_female.webp',
-      name: 'Boho Afro Queen',
-      dateSaved: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    SavedStyle(
-      id: '2',
-      imagePath: 'assets/images/hairstyles/blunt_cut.webp',
-      name: 'Chic Blunt Cut',
-      dateSaved: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-    SavedStyle(
-      id: '3',
-      imagePath: 'assets/images/hairstyles/box_braids.webp',
-      name: 'Intricate Box Braids',
-      dateSaved: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    SavedStyle(
-      id: '4',
-      imagePath: 'assets/images/hairstyles/bro_flow_m.webp',
-      name: 'Casual Bro Flow',
-      dateSaved: DateTime.now().subtract(const Duration(minutes: 30)),
-    ),
-    SavedStyle(
-      id: '5',
-      imagePath: 'assets/images/hairstyles/asymmetrical_bob.webp',
-      name: 'Modern Asymmetry',
-      dateSaved: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-    SavedStyle(
-      id: '6',
-      imagePath: 'assets/images/hairstyles/bald_m.webp',
-      name: 'Sleek Bald Look',
-      dateSaved: DateTime.now().subtract(const Duration(days: 4)),
-    ),
-    SavedStyle(
-      id: '7',
-      imagePath: 'assets/images/hairstyles/blunt_micro.webp',
-      name: 'Micro Blunt Edge',
-      dateSaved: DateTime.now().subtract(const Duration(days: 5)),
-    ),
-  ];
+  List<SavedStyle> _savedStyles = [];
+  final SavedStylesStore _store = SavedStylesStore();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final items = await _store.load();
+    if (!mounted) return;
+    setState(() {
+      _savedStyles = items;
+    });
+  }
 
   Future<void> _handleDownload(SavedStyle style) async {
     var status = await Permission.storage.status;
@@ -502,7 +501,10 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
                         );
                       },
                       onDownload: () => _handleDownload(item),
-                      onDelete: () => _handleDelete(item),
+                      onDelete: () async {
+                        await _store.deleteById(item.id);
+                        await _load();
+                      },
                     );
                   }, childCount: filtered.length),
                 ),

@@ -1,20 +1,30 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../config/secrets.dart';
 import '../data/style_data_provider.dart';
 import '../models/models.dart';
+import '../models/saved_style.dart';
 import '../platform/image_picker.dart';
-import '../widgets/credits_badge.dart';
+import '../services/gemini_service.dart';
+import '../services/saved_styles_store.dart';
 import '../widgets/home_screen_header.dart';
 import '../widgets/outlined_primary_button.dart';
+import '../widgets/picked_image_layout.dart';
 import '../widgets/primary_button.dart';
 import 'account_screen.dart';
+import 'ai_recommendation_tab.dart';
 import 'my_styles_screen.dart'; // Added import for MyStylesScreen
 import 'view_image_screen.dart';
-import 'ai_recommendation_tab.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../models/user_data.dart';
+import '../services/watermark_util.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -55,73 +65,62 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
     return Scaffold(
       body: pages[_currentIndex],
-      bottomNavigationBar: Container(
-        height: 65,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.background,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.background,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-          showUnselectedLabels: true,
-          selectedLabelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.5,
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: (i) => setState(() => _currentIndex = i),
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Theme.of(context).colorScheme.primary,
+            unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            showUnselectedLabels: true,
+            selectedLabelStyle: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(fontWeight: FontWeight.w600, height: 1.5),
+            unselectedLabelStyle: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(fontWeight: FontWeight.w400, height: 1.5),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.auto_awesome_outlined),
+                activeIcon: Icon(Icons.auto_awesome),
+                label: 'AI Recommendations',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.folder_open_outlined),
+                activeIcon: Icon(Icons.folder),
+                label: 'My Styles',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.account_circle_outlined),
+                activeIcon: Icon(Icons.account_circle),
+                label: 'Account',
+              ),
+            ],
           ),
-          unselectedLabelStyle: Theme.of(context).textTheme.labelSmall
-              ?.copyWith(fontWeight: FontWeight.w400, height: 1.5),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome),
-              label: 'AI Recommendations',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.folder_open_outlined),
-              activeIcon: Icon(Icons.folder),
-              label: 'My Styles',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_circle_outlined),
-              activeIcon: Icon(Icons.account_circle),
-              label: 'Account',
-            ),
-          ],
         ),
       ),
     );
-  }
-}
-
-class _PlaceholderTab extends StatelessWidget {
-  final String title;
-
-  const _PlaceholderTab({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: Text(title));
   }
 }
 
@@ -152,6 +151,14 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   bool _loading = true;
   XFile? _pickedImage;
   bool _isPickingImage = false;
+  bool _isGenerating = false;
+  Uint8List? _generatedBytes;
+  double _rotationTurns = 0;
+  bool _showOriginal = false;
+  String? _generatedStyleName;
+  final SavedStylesStore _store = SavedStylesStore();
+
+  late final GeminiService _gemini;
 
   @override
   void initState() {
@@ -161,6 +168,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (mounted) setState(() {});
       });
     _loadAssets();
+    _gemini = GeminiService(Secrets.geminiApiKey);
   }
 
   Future<void> _loadAssets() async {
@@ -312,17 +320,22 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         controller: _tabController,
                         isScrollable: true,
                         tabAlignment: TabAlignment.start,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        labelPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
                         indicator: BoxDecoration(
                           color: Theme.of(context).colorScheme.background,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         indicatorSize: TabBarIndicatorSize.tab,
                         labelColor: Theme.of(context).colorScheme.onSurface,
-                        unselectedLabelColor:
-                            Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        unselectedLabelColor: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.7),
                         splashFactory: NoSplash.splashFactory,
-                        overlayColor: MaterialStateProperty.all(Colors.transparent),
+                        overlayColor: MaterialStateProperty.all(
+                          Colors.transparent,
+                        ),
                         dividerColor: Colors.transparent,
                         tabs: List.generate(_categories.length, (index) {
                           return Tab(
@@ -429,82 +442,53 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                 hasScrollBody: false,
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: Image.file(
-                        File(_pickedImage!.path),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Colors.grey[300],
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 64,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Error loading image',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              ],
-                            ),
+                    PickedImageLayout(
+                      imagePath: _pickedImage!.path,
+                      onBack: () => setState(() => _pickedImage = null),
+                      onChangeStyle: _showStyleChooserBottomSheet,
+                      onRotateLeft: () => setState(
+                        () => _rotationTurns = (_rotationTurns - 1) % 4,
+                      ),
+                      onRotateRight: () => setState(
+                        () => _rotationTurns = (_rotationTurns + 1) % 4,
+                      ),
+                      onShare: _shareCurrent,
+                      onSave: _saveCurrent,
+                      onCompare: _compareOriginal,
+                      generatedBytes: _generatedBytes,
+                      rotationQuarterTurns: _rotationTurns.round(),
+                      onTap: () {
+                        final title = _generatedBytes != null
+                            ? 'AI Result'
+                            : 'Preview';
+                        if (_generatedBytes != null) {
+                          _openGeneratedInViewer();
+                        } else {
+                          Navigator.pushNamed(
+                            context,
+                            ViewImageScreen.routeName,
+                            arguments: {
+                              'imagePath': _pickedImage!.path,
+                              'title': title,
+                            },
                           );
-                        },
-                      ),
+                        }
+                      },
+                      showOriginalOverride: _showOriginal,
+                      onComparePressStart: () =>
+                          setState(() => _showOriginal = true),
+                      onComparePressEnd: () =>
+                          setState(() => _showOriginal = false),
                     ),
-                    Positioned(
-                      top: 20,
-                      left: 16,
-                      child: _circleIcon(
-                        context,
-                        Icons.arrow_back_rounded,
-                        onPressed: () {
-                          setState(() {
-                            _pickedImage = null;
-                          });
-                        },
+                    if (_isGenerating)
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0.35),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      top: 20,
-                      right: 16,
-                      child: Column(
-                        children: [
-                          _circleIcon(context, Icons.compare_rounded),
-                          const SizedBox(height: 14),
-                          _circleIcon(context, Icons.share_rounded),
-                          const SizedBox(height: 14),
-                          _circleIcon(context, Icons.save_alt_rounded),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 110,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _circleIcon(context, Icons.rotate_left_rounded),
-                          _circleIcon(context, Icons.rotate_right_rounded),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 24,
-                      left: 20,
-                      right: 20,
-                      child: PrimaryButton(
-                        label: 'Change Hairstyle',
-                        icon: Icons.auto_awesome_rounded,
-                        onPressed: () {
-                          debugPrint('Change hairstyle pressed');
-                        },
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -561,20 +545,17 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     return grid + 32; // 16 top + 16 bottom padding
   }
 
-  Widget _buildStyleCard(StyleItem item) {
+  Widget _buildStyleCard(StyleItem item, {VoidCallback? onTap}) {
     return Card(
       elevation: 0,
       shadowColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {
+        onTap: onTap ?? () {
           Navigator.pushNamed(
             context,
             ViewImageScreen.routeName,
-            arguments: {
-              'imagePath': item.assetPath,
-              'title': item.name,
-            },
+            arguments: {'imagePath': item.assetPath, 'title': item.name},
           );
         },
         borderRadius: BorderRadius.circular(16),
@@ -633,29 +614,6 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget _circleIcon(
-    BuildContext context,
-    IconData icon, {
-    VoidCallback? onPressed,
-  }) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.35),
-        shape: BoxShape.circle,
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: Colors.white),
-        onPressed:
-            onPressed ??
-            () {
-              debugPrint('Pressed $icon');
-            },
-      ),
-    );
-  }
-
   Future<void> _pickFromGallery() async {
     if (!mounted || _isPickingImage) return;
 
@@ -673,6 +631,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image picked from gallery: ${image.path}');
+          _generatedBytes = null;
+          _showStyleChooserBottomSheet();
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -721,6 +681,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
         if (image != null) {
           _pickedImage = image;
           debugPrint('Image taken from camera: ${image.path}');
+          _generatedBytes = null;
+          _showStyleChooserBottomSheet();
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -750,4 +712,337 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       }
     }
   }
+
+  void _showStyleChooserBottomSheet() {
+    if (_pickedImage == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      builder: (ctx) {
+        StyleItem? selected;
+        final TabController dialogTabController = TabController(
+          length: _categories.length,
+          vsync: this,
+          initialIndex: _tabController.index,
+        );
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (context, scrollController) {
+            return StatefulBuilder(
+              builder: (context, setLocalState) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Choose your style',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0x22AAAAAA),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: TabBar(
+                            controller: dialogTabController,
+                            isScrollable: true,
+                            tabAlignment: TabAlignment.start,
+                            labelPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            indicator: BoxDecoration(
+                              color: Theme.of(context).colorScheme.background,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            labelColor: Theme.of(context).colorScheme.onSurface,
+                            unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            splashFactory: NoSplash.splashFactory,
+                            overlayColor: MaterialStateProperty.all(Colors.transparent),
+                            dividerColor: Colors.transparent,
+                            tabs: List.generate(_categories.length, (index) {
+                              return Tab(
+                                child: Row(
+                                  children: [
+                                    Icon(_categoryIcons[index], size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _categories[index],
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: TabBarView(
+                        controller: dialogTabController,
+                        children: _categories.map((categoryName) {
+                          StyleCategory? matchingCategory;
+                          for (var cat in _categoriesData) {
+                            if (cat.name.toLowerCase() == categoryName.toLowerCase()) {
+                              matchingCategory = cat;
+                              break;
+                            }
+                          }
+                          if (matchingCategory == null || matchingCategory.styles.isEmpty) {
+                            return Center(
+                              child: Text('No styles available for $categoryName'),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: GridView.builder(
+                              controller: scrollController,
+                              shrinkWrap: true,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.8,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                              itemCount: matchingCategory.styles.length,
+                              itemBuilder: (context, index) {
+                                final item = matchingCategory!.styles[index];
+                                return _buildStyleCard(
+                                  item,
+                                  onTap: () async {
+                                    Navigator.of(context).pop();
+                                    if (item.prompt.isNotEmpty) {
+                                      await _startGenerationWithPrompt(item.prompt, item.name);
+                                    } else {
+                                      await _startGeneration();
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: PrimaryButton(
+                        label: 'AI Recommended',
+                        icon: Icons.auto_awesome_outlined,
+                        onPressed: () async {
+                          Navigator.of(context).pop();
+                          if (selected != null && selected.prompt.isNotEmpty) {
+                            await _startGenerationWithPrompt(selected.prompt, selected!.name);
+                          } else {
+                            await _startGeneration();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _startGenerationWithPrompt(String prompt, String styleName) async {
+    if (_pickedImage == null || _isGenerating) return;
+    final userProvider = context.read<UserProvider>();
+    final hasCredit = await userProvider.ensureCreditForGeneration();
+    if (!hasCredit) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Out of credits. Upgrade or buy more.')),
+      );
+      return;
+    }
+    if (_gemini.apiKey.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gemini API key not set')),
+      );
+      return;
+    }
+    setState(() {
+      _isGenerating = true;
+    });
+    try {
+      final file = File(_pickedImage!.path);
+      final result = await _gemini.editWithPrompt(imageFile: file, prompt: prompt);
+      if (!mounted) return;
+      setState(() {
+        _generatedBytes = result.bytes;
+        _generatedStyleName = styleName;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Generation failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
+    }
+  }
+
+
+  Future<void> _startGeneration() async {
+    if (_pickedImage == null || _isGenerating) return;
+    final userProvider = context.read<UserProvider>();
+    final hasCredit = await userProvider.ensureCreditForGeneration();
+    if (!hasCredit) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Out of credits. Upgrade or buy more.')),
+      );
+      return;
+    }
+    if (_gemini.apiKey.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gemini API key not set')));
+      return;
+    }
+    setState(() {
+      _isGenerating = true;
+    });
+    try {
+      final file = File(_pickedImage!.path);
+      final result = await _gemini.generateAiRecommendation(imageFile: file);
+      if (!mounted) return;
+      setState(() {
+        _generatedBytes = result.bytes;
+        _generatedStyleName = result.styleName;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Generation failed: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openGeneratedInViewer() async {
+    if (_generatedBytes == null) return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/ai_result_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(_generatedBytes!, flush: true);
+      if (!mounted) return;
+      Navigator.pushNamed(
+        context,
+        ViewImageScreen.routeName,
+        arguments: {'imagePath': file.path, 'title': 'AI Result'},
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Open failed: $e')));
+    }
+  }
+
+  Future<void> _shareCurrent() async {
+    try {
+      final plan = context.read<UserProvider>().plan;
+      Uint8List bytes = _generatedBytes ?? await File(_pickedImage!.path).readAsBytes();
+      if (plan == SubscriptionPlanType.free && _generatedBytes != null) {
+        bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      await Share.shareXFiles([XFile(file.path)], text: 'AI Hair Styler');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    }
+  }
+
+  Future<void> _saveCurrent() async {
+    try {
+      if (_generatedBytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generate an image first')),
+        );
+        return;
+      }
+      final plan = context.read<UserProvider>().plan;
+      Uint8List toWrite = _generatedBytes!;
+      if (plan == SubscriptionPlanType.free) {
+        toWrite = await WatermarkUtil.applyWatermark(imageBytes: toWrite);
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File(
+        '${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(toWrite, flush: true);
+
+      final saved = SavedStyle(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        imagePath: file.path,
+        name: _generatedStyleName ?? 'AI Recommended',
+        dateSaved: DateTime.now(),
+      );
+      await _store.append(saved);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+    }
+  }
+
+  void _compareOriginal() {}
 }

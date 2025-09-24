@@ -7,6 +7,9 @@ import 'package:flutter_hair_styler/screens/terms_of_service_screen.dart';
 import 'package:flutter_hair_styler/widgets/outlined_primary_button.dart';
 import 'package:flutter_hair_styler/widgets/primary_button.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../models/user_data.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -51,6 +54,14 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<UserProvider?>();
+    final credits = provider?.remainingCredits ?? 0;
+    final plan = provider?.plan ?? SubscriptionPlanType.free;
+    String tierLabel = switch (plan) {
+      SubscriptionPlanType.free => 'Free User',
+      SubscriptionPlanType.standard => 'Standard',
+      SubscriptionPlanType.pro => 'Pro',
+    };
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -80,17 +91,17 @@ class _AccountScreenState extends State<AccountScreen> {
             _InfoCard(
               title: 'Credit Balance',
               trailing: Text(
-                '178 Credits',
+                '$credits Credits',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
               ),
             ),
             const SizedBox(height: 16),
             _InfoCard(
               title: 'Subscription',
               trailing: Text(
-                'renew on 01/10/2025',
+                tierLabel,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),

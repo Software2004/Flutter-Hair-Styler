@@ -1,0 +1,391 @@
+package com.neuroxes.aihairstyler.retrofit
+
+import android.util.Log
+import com.neuroxes.aihairstyler.mvvm.repo.HairstyleRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.Base64
+import java.util.concurrent.TimeUnit
+
+
+/**
+ * Enhanced Gemini Image Generation API Client with proper timeout and retry mechanism
+ */
+
+class OptimizedGeminiImageEditor(
+    private val apiKey: String,
+    private val preprocessedImage: HairstyleRepository.PreprocessedImage,
+) {
+
+    companion object {
+        private const val TAG = "OptimizedGeminiEditor"
+        private const val MAX_RETRIES = 2
+        private const val RETRY_DELAY_MS = 500L // Reduced delay
+    }
+
+    private val client = OkHttpClient.Builder().connectTimeout(0, TimeUnit.MILLISECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS).writeTimeout(0, TimeUnit.MILLISECONDS).build()
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        prettyPrint = false
+    }
+
+    private val baseUrl =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent"
+
+    // Use the same data classes from original GeminiImageEditor
+    @Serializable
+    data class GeminiRequest(
+        val contents: List<Content>,
+        val generationConfig: GenerationConfig = GenerationConfig(),
+        val safetySettings: List<SafetySetting> = listOf(
+            SafetySetting("HARM_CATEGORY_HARASSMENT", "BLOCK_NONE"),
+            SafetySetting("HARM_CATEGORY_HATE_SPEECH", "BLOCK_NONE"),
+            SafetySetting("HARM_CATEGORY_SEXUALLY_EXPLICIT", "BLOCK_NONE"),
+            SafetySetting("HARM_CATEGORY_DANGEROUS_CONTENT", "BLOCK_NONE")
+        ),
+    )
+
+    @Serializable
+    data class SafetySetting(
+        val category: String,
+        val threshold: String,
+    )
+
+    @Serializable
+    data class Content(
+        val role: String = "user",
+        val parts: List<Part>,
+    )
+
+    @Serializable
+    data class Part(
+        val text: String? = null,
+        @SerialName("inlineData") val inlineData: InlineData? = null,
+    )
+
+    @Serializable
+    data class InlineData(
+        val mimeType: String,
+        val data: String,
+    )
+
+    @Serializable
+    data class GenerationConfig(
+        val temperature: Double = 0.1,
+        val topK: Int = 5, // Further reduced
+        val topP: Double = 0.3, // Further reduced
+        val maxOutputTokens: Int = 1024, // Reduced
+        val candidateCount: Int = 1,
+    )
+
+    @Serializable
+    data class GeminiResponse(
+        val candidates: List<Candidate>? = null,
+        val error: GeminiError? = null,
+    )
+
+    @Serializable
+    data class Candidate(
+        val content: Content,
+        val finishReason: String? = null,
+    )
+
+    @Serializable
+    data class GeminiError(
+        val code: Int,
+        val message: String,
+        val status: String,
+    )
+
+    suspend fun editImageWithCachedData(prompt: String): Result<ByteArray> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Use the pre-encoded base64 data
+                makeApiCallWithRetry(prompt)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in editImageWithCachedData: ${e.message}", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    private suspend fun makeApiCallWithRetry(prompt: String): Result<ByteArray> {
+        var lastException: Exception? = null
+
+        repeat(MAX_RETRIES) { attempt ->
+            try {
+                val result = makeApiCall(prompt)
+                if (result.isSuccess) {
+                    return result
+                }
+                lastException = result.exceptionOrNull() as? Exception
+
+                if (attempt < MAX_RETRIES - 1) {
+                    delay(RETRY_DELAY_MS * (attempt + 1))
+                }
+            } catch (e: Exception) {
+                lastException = e
+                if (attempt < MAX_RETRIES - 1) {
+                    delay(RETRY_DELAY_MS * (attempt + 1))
+                }
+            }
+        }
+
+        return Result.failure(
+            lastException ?: Exception("Failed after $MAX_RETRIES attempts")
+        )
+    }
+
+    private fun makeApiCall(prompt: String): Result<ByteArray> {
+        return try {
+            // Use pre-encoded base64 data - no re-encoding needed!
+            val enhancedPrompt = "Change hairstyle to: $prompt. Keep face unchanged."
+
+            val request = GeminiRequest(
+                contents = listOf(
+                    Content(
+                        parts = listOf(
+                            Part(text = enhancedPrompt), Part(
+                                inlineData = InlineData(
+                                    mimeType = preprocessedImage.mimeType,
+                                    data = preprocessedImage.base64Data
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val requestBody = json.encodeToString(GeminiRequest.serializer(), request)
+                .toRequestBody("application/json".toMediaType())
+
+            val httpRequest =
+                Request.Builder().url("$baseUrl?key=$apiKey").post(requestBody).build()
+
+            val response = client.newCall(httpRequest).execute()
+
+            response.use { res ->
+                val responseBody = res.body?.string()
+
+                if (res.isSuccessful && responseBody != null) {
+                    parseResponse(responseBody)
+                } else {
+                    Result.failure(Exception("API call failed: ${res.code}"))
+                }
+            }
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun parseResponse(responseBody: String): Result<ByteArray> {
+        return try {
+            val geminiResponse = json.decodeFromString<GeminiResponse>(responseBody)
+
+            geminiResponse.error?.let { error ->
+                return Result.failure(Exception("API error: ${error.message}"))
+            }
+
+            val candidate = geminiResponse.candidates?.firstOrNull() ?: return Result.failure(
+                Exception("No candidates in response")
+            )
+
+            for (part in candidate.content.parts) {
+                part.inlineData?.let { inlineData ->
+                    if (inlineData.mimeType.startsWith("image/")) {
+                        val imageBytes = Base64.getDecoder().decode(inlineData.data)
+                        return Result.success(imageBytes)
+                    }
+                }
+            }
+
+            Result.failure(Exception("No image in response"))
+
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to parse response: ${e.message}"))
+        }
+    }
+
+    suspend fun generateAIRecommendation(): Result<Pair<ByteArray, String>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                makeAIRecommendationCall()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in generateAIRecommendation: ${e.message}", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    private fun makeAIRecommendationCall(): Result<Pair<ByteArray, String>> {
+        return try {
+            val aiPrompt = createAIRecommendationPrompt()
+
+            val request = GeminiRequest(
+                contents = listOf(
+                    Content(
+                        parts = listOf(
+                            Part(text = aiPrompt), Part(
+                                inlineData = InlineData(
+                                    mimeType = preprocessedImage.mimeType,
+                                    data = preprocessedImage.base64Data
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val requestBody = json.encodeToString(GeminiRequest.serializer(), request)
+                .toRequestBody("application/json".toMediaType())
+
+            val httpRequest =
+                Request.Builder().url("$baseUrl?key=$apiKey").post(requestBody).build()
+
+            val response = client.newCall(httpRequest).execute()
+
+            response.use { res ->
+                val responseBody = res.body?.string()
+
+                if (res.isSuccessful && responseBody != null) {
+                    parseAIRecommendationResponse(responseBody)
+                } else {
+                    Result.failure(Exception("AI recommendation API call failed: ${res.code}"))
+                }
+            }
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun createAIRecommendationPrompt(): String {
+        return """
+    Analyze this person's image and apply the BEST SUITED hairstyle from the following options. Consider their face shape, gender, age, and current appearance to choose the most flattering style.
+
+    MALE HAIRSTYLES:
+    - Undercut: Very short and faded on the sides and back, with a distinct disconnect from the long hair on top
+    - Pompadour: Voluminous, brushed up and back from the forehead with high volume on top
+    - Fade (Skin Fade): Hair faded down to the skin around the ears and back of the head
+    - Quiff: Textured hair brushed upward and back from the face, voluminous on top
+    - Side Part: Neatly combed with a deep, sharp part and swept to one side
+    - Crew Cut: Very short and tapered on the sides and back, with the top slightly longer
+    - French Crop: Short hair on top with straight, horizontal fringe at the front
+    - Slicked Back: Hair combed back smoothly and neatly from the face
+    - Textured Crop: Short, choppy layers with lots of texture and messy fringe
+    - Man Bun: Long hair pulled back and tied into a neat bun at the back
+    - Afro: Full, natural afro hair growing in a rounded shape
+    - Curly Fringe: Head full of loose, defined curls with longer curls as fringe
+    - Buzz Cut: Very short, uniform cut to the scalp with clippers
+    - Dreadlocks: Hair matted and twisted into ropelike locks
+    - Comb Over: Longer hair on top combed over to one side with fade
+    - Mullet: Short on top and sides, but long in the back
+    - Bro Flow: Long, wavy hair that parts in the middle and flows to shoulders
+    - Taper Fade: Hair gradually gets shorter down the sides and back
+    - Hard Part: Sharp, shaved-in line creates a severe part with fade
+    - Ivy League: Short, side-parted, neatly tapered cut
+    - Bleached Spiky Hair: Spiky, messy hair bleached platinum blonde
+    - Bald Head: Completely bald, freshly shaved head
+    - Frosted: Short, spiky hair with frosted blonde tips
+    - Viking Undercut: Shaved sides with long hair on top braided
+
+    FEMALE HAIRSTYLES:
+    - Pixie Cut: Short, textured cut cropped close on back and sides
+    - Long Hollywood Waves: Shoulder-length or longer with deep, soft S-shaped waves
+    - Afro: Full, natural afro with stylish fabric headband
+    - Asymmetrical Bob: Sharp bob, short in back, angling longer toward front
+    - Space Buns: Hair parted down middle into two bun shapes high on head
+    - Sleek High Ponytail: Hair pulled tightly high on crown, hanging straight
+    - Shag Cut: Modern shag with heavy layers and curtain bangs
+    - Box Braids: Medium-length uniform braids falling past shoulders
+    - Edgy Undercut: Sides and back shaved, long hair on top swept over
+    - Blunt Micro Bangs: Long bob cut with straight micro bangs across forehead
+
+    MALE KIDS HAIRSTYLES:
+    - Classic Crew Cut: Short, practical crew cut, tapered on sides and back
+    - Textured Crop with Fringe: Short, textured hair on top with messy fringe
+    - Side Part: Neatly combed hair with sharp side part
+    - Spiky Hair: Short hair styled into playful, textured spikes
+    - Fade with Design: Short fade haircut with simple shaved-in design
+    - Caesar Cut: Short horizontal straight-across fringe with flat top
+    - Classic Bowl Cut: Straight-around bowl cut of even length
+    - Spiky Textured: Short, spiky, textured hair styled with gel
+    - Curly Afro Puff: Short, curly afro puff, full and rounded
+    - Side-Swept Fringe: Crisp side-swept style with hard part
+    - Messy Surfer Hair: Long, messy, sun-kissed windswept hair
+
+    FEMALE KIDS HAIRSTYLES:
+    - Pigtails: Two high, bouncy pigtails with bright ribbon bows
+    - Messy Bun: Single messy bun on top with wispy bangs and loose strands
+    - French Braid Crown: French braid woven like headband with hair down
+    - Bob with Blunt: Short, chin-length bob cut in perfectly blunt line
+    - Puffy Half-Up: Top section gathered high with colorful scrunchie
+    - Space Buns: Two playful space buns, one on each side of head
+    - Long Layers with Side Bangs: Long hair with soft layers and side-swept bangs
+    - Wavy Bob with Headband: Chin-length wavy bob with wide fabric headband
+
+    INSTRUCTIONS:
+    1. Analyze the person's gender, age (adult/child), face shape, and current appearance
+    2. Select the SINGLE MOST SUITABLE hairstyle from the appropriate category
+    3. Apply that hairstyle while keeping their face, expression, and all other features completely unchanged
+    4. In your response, start with the exact name of the chosen hairstyle (e.g. "Undercut", "Pixie Cut", etc.) followed by a colon
+    5. Then provide the styled image
+
+    Choose wisely based on what would look best on this specific person!
+    """.trimIndent()
+    }
+
+    private fun parseAIRecommendationResponse(responseBody: String): Result<Pair<ByteArray, String>> {
+        return try {
+            val geminiResponse = json.decodeFromString<GeminiResponse>(responseBody)
+
+            geminiResponse.error?.let { error ->
+                return Result.failure(Exception("API error: ${error.message}"))
+            }
+
+            val candidate = geminiResponse.candidates?.firstOrNull() ?: return Result.failure(
+                Exception("No candidates in response")
+            )
+
+            // Extract style name from text response
+            var styleName = "AI Recommended"
+            for (part in candidate.content.parts) {
+                part.text?.let { text ->
+                    // Extract style name from the beginning of the response
+                    val lines = text.split("\n")
+                    val firstLine = lines.firstOrNull()?.trim()
+                    if (firstLine != null && firstLine.contains(":")) {
+                        styleName = firstLine.split(":")[0].trim()
+                    }
+                }
+            }
+
+            // Extract image data
+            for (part in candidate.content.parts) {
+                part.inlineData?.let { inlineData ->
+                    if (inlineData.mimeType.startsWith("image/")) {
+                        val imageBytes = Base64.getDecoder().decode(inlineData.data)
+                        return Result.success(Pair(imageBytes, styleName))
+                    }
+                }
+            }
+
+            Result.failure(Exception("No image in AI recommendation response"))
+
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to parse AI recommendation response: ${e.message}"))
+        }
+    }
+}

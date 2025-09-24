@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../services/image_picker_service.dart';
+import '../services/gemini_service.dart';
+import '../config/secrets.dart';
+import '../services/saved_styles_store.dart';
+import '../models/saved_style.dart';
 import '../widgets/home_screen_header.dart';
 import '../widgets/outlined_primary_button.dart';
 import '../widgets/picked_image_layout.dart';
 import '../widgets/primary_button.dart';
 import 'privacy_policy_screen.dart';
+import 'view_image_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../models/user_data.dart';
+import '../services/watermark_util.dart';
 
 class AIRecommendationTab extends StatefulWidget {
   const AIRecommendationTab({super.key});
@@ -19,6 +32,131 @@ class AIRecommendationTab extends StatefulWidget {
 class _AIRecommendationTabState extends State<AIRecommendationTab> {
   XFile? _pickedImage;
   bool _isPicking = false;
+  bool _isGenerating = false;
+  Uint8List? _generatedBytes;
+  double _rotationTurns = 0;
+  bool _showOriginal = false;
+  String? _generatedStyleName;
+  final SavedStylesStore _store = SavedStylesStore();
+
+  late final GeminiService _gemini;
+
+  @override
+  void initState() {
+    super.initState();
+    _gemini = GeminiService(Secrets.geminiApiKey);
+  }
+
+  Future<void> _startGeneration() async {
+    if (_pickedImage == null || _isGenerating) return;
+    final userProvider = context.read<UserProvider>();
+    final hasCredit = await userProvider.ensureCreditForGeneration();
+    if (!hasCredit) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Out of credits. Upgrade or buy more.')),
+      );
+      return;
+    }
+    if (_gemini.apiKey.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gemini API key not set')), 
+      );
+      return;
+    }
+    setState(() {
+      _isGenerating = true;
+    });
+    try {
+      final file = File(_pickedImage!.path);
+      final result = await _gemini.generateAiRecommendation(imageFile: file);
+      if (!mounted) return;
+      setState(() {
+        _generatedBytes = result.bytes;
+        _generatedStyleName = result.styleName;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Generation failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openGeneratedInViewer() async {
+    if (_generatedBytes == null) return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/ai_result_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(_generatedBytes!, flush: true);
+      if (!mounted) return;
+      Navigator.pushNamed(
+        context,
+        ViewImageScreen.routeName,
+        arguments: {
+          'imagePath': file.path,
+          'title': 'AI Result',
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Open failed: $e')));
+    }
+  }
+
+  Future<void> _shareCurrent() async {
+    try {
+      final plan = context.read<UserProvider>().plan;
+      Uint8List bytes = _generatedBytes ?? await File(_pickedImage!.path).readAsBytes();
+      if (plan == SubscriptionPlanType.free && _generatedBytes != null) {
+        bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(bytes, flush: true);
+      await Share.shareXFiles([XFile(file.path)], text: 'AI Hair Styler');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+    }
+  }
+  Future<void> _saveCurrent() async {
+    try {
+      if (_generatedBytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generate an image first')));
+        return;
+      }
+      final plan = context.read<UserProvider>().plan;
+      Uint8List toWrite = _generatedBytes!;
+      if (plan == SubscriptionPlanType.free) {
+        toWrite = await WatermarkUtil.applyWatermark(imageBytes: toWrite);
+      }
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png');
+      await file.writeAsBytes(toWrite, flush: true);
+
+      final saved = SavedStyle(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        imagePath: file.path,
+        name: _generatedStyleName ?? 'AI Recommended',
+        dateSaved: DateTime.now(),
+      );
+      await _store.append(saved);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+    }
+  }
+  void _compareOriginal() {}
 
   Future<void> _pickFromGallery() async {
     if (_isPicking) return;
@@ -29,7 +167,11 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       setState(() {
         _isPicking = false;
         _pickedImage = image;
+        _generatedBytes = null;
       });
+      if (image != null) {
+        _startGeneration();
+      }
       if (image != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -59,7 +201,11 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       setState(() {
         _isPicking = false;
         _pickedImage = image;
+        _generatedBytes = null;
       });
+      if (image != null) {
+        _startGeneration();
+      }
       if (image != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -83,10 +229,58 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
   @override
   Widget build(BuildContext context) {
     if (_pickedImage != null) {
-      return PickedImageLayout(
-        imagePath: _pickedImage!.path,
-        onBack: () => setState(() => _pickedImage = null),
-        onChangeStyle: () {},
+      final imagePath = _pickedImage!.path;
+      return SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          children: [
+            const HomeScreenHeader(),
+            Expanded(
+              child: Stack(
+              children: [
+                PickedImageLayout(
+              imagePath: imagePath,
+              onBack: () => setState(() => _pickedImage = null),
+              onChangeStyle: _startGeneration,
+              onRotateLeft: () => setState(() => _rotationTurns = (_rotationTurns - 1) % 4),
+              onRotateRight: () => setState(() => _rotationTurns = (_rotationTurns + 1) % 4),
+              onShare: _shareCurrent,
+              onSave: _saveCurrent,
+              onCompare: _compareOriginal,
+              generatedBytes: _generatedBytes,
+              rotationQuarterTurns: _rotationTurns.round(),
+              onTap: () {
+                final title = _generatedBytes != null ? 'AI Result' : 'Preview';
+                if (_generatedBytes != null) {
+                  _openGeneratedInViewer();
+                } else {
+                  Navigator.pushNamed(
+                    context,
+                    ViewImageScreen.routeName,
+                    arguments: {
+                      'imagePath': imagePath,
+                      'title': title,
+                    },
+                  );
+                }
+              },
+              showOriginalOverride: _showOriginal,
+              onComparePressStart: () => setState(() => _showOriginal = true),
+              onComparePressEnd: () => setState(() => _showOriginal = false),
+            ),
+            if (_isGenerating)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.35),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              ],
+            ),
+            ),
+          ],
+        ),
       );
     }
 

@@ -24,7 +24,7 @@ class PlanCard extends StatelessWidget {
         : Theme.of(context).colorScheme.surface; // Changed for unselected
     final BoxBorder border = isSelected
         ? Border.all(color: colorScheme.primary, width: 1.5)
-        : Border.all(color: Colors.transparent, width: 0); // Changed for unselected
+        : Border.all(color: Colors.transparent, width: 1.5); // Changed for unselected
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -55,7 +55,7 @@ class PlanCard extends StatelessWidget {
                     'POPULAR',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -70,9 +70,7 @@ class PlanCard extends StatelessWidget {
                     children: [
                       Text(
                         plan.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -96,7 +94,7 @@ class PlanCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   feature,
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ),
                             ],
@@ -110,7 +108,7 @@ class PlanCard extends StatelessWidget {
                   plan.priceLabel,
                   style: Theme.of(
                     context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.normal),
                 ),
               ],
             ),

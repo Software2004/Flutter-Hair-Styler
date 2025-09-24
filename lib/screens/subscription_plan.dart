@@ -1,10 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/SubscriptionPlan.dart';
 import '../models/credit_pack.dart';
+import '../models/user_data.dart';
+import '../providers/user_provider.dart';
 import '../widgets/CreditPackCard.dart';
 import '../widgets/PlanCard.dart';
 import '../widgets/primary_button.dart';
+import 'login_screen.dart';
 
 /// Manage Subscription screen implementing selection logic and responsive layout.
 class ManageSubscriptionScreen extends StatefulWidget {
@@ -62,23 +67,46 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
     if (_selectedProductId == null) {
       return;
     }
-    // Stub: integrate with in_app_purchase here.
-    // For now, just log the selected product id to console.
-    debugPrint('Proceed to purchase: $_selectedProductId');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.pushNamed(context, LoginScreen.routeName).then((_) {
+        // After login, return to this screen and continue flow
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+    // Stub purchase flow start
+    debugPrint('Proceed to purchase: $_selectedProductId for user ${user.uid}');
+    // TODO: Query products and start purchase using in_app_purchase
+  }
+
+  String _ctaLabel(BuildContext context) {
+    final String? id = _selectedProductId;
+    if (id == null) {
+      return 'Select a plan or credits';
+    }
+    final plan = _plans.where((p) => p.id == id).cast<SubscriptionPlan?>().firstWhere((p) => p != null, orElse: () => null);
+    if (plan != null) {
+      return plan.id == 'plan_pro' ? 'Upgrade to Pro' : 'Upgrade to ${plan.title}';
+    }
+    final pack = _creditPacks.where((c) => c.id == id).cast<CreditPack?>().firstWhere((c) => c != null, orElse: () => null);
+    if (pack != null) {
+      return 'Buy ${pack.creditAmount} Credits';
+    }
+    return 'Continue';
   }
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final plan = context.watch<UserProvider>().plan;
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         title: Text(
-          'Upgrade Plan',
-          style: textTheme.titleLarge?.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w300, // Further reduced weight
-          ),
+          plan == SubscriptionPlanType.pro ? 'Manage Plan' : 'Upgrade Plan',
+          style: textTheme.titleMedium
         ),
         surfaceTintColor: Colors.transparent,
       ),
@@ -101,11 +129,9 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: PrimaryButton(
-          label: _selectedProductId == 'plan_pro'
-              ? 'Upgrade to Pro'
-              : 'Continue',
-          onPressed: () {
-            _selectedProductId != null ? _handleUpgrade() : null; 
+          label: _ctaLabel(context),
+          onPressed: (){
+            _selectedProductId == null ? null : _handleUpgrade;
           },
         ),
       ),
@@ -115,12 +141,38 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
   Widget _buildCurrentPlanCard(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final planType = context.watch<UserProvider>().plan;
+    final remaining = context.watch<UserProvider>().remainingCredits;
+
+    String planLabel() {
+      switch (planType) {
+        case SubscriptionPlanType.free:
+          return 'Free User';
+        case SubscriptionPlanType.standard:
+          return 'Standard';
+        case SubscriptionPlanType.pro:
+          return 'Pro';
+      }
+    }
+
+    int monthlyCap() {
+      switch (planType) {
+        case SubscriptionPlanType.free:
+          return 2;
+        case SubscriptionPlanType.standard:
+          return 10;
+        case SubscriptionPlanType.pro:
+          return 25;
+      }
+    }
+
+    final int cap = monthlyCap();
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface, 
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.transparent, width: 0), 
+        border: Border.all(color: Colors.transparent, width: 0),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -128,12 +180,9 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
         children: [
           Text(
             'Current Plan',
-            style: textTheme.titleMedium?.copyWith(
-              fontSize: (textTheme.titleMedium?.fontSize ?? 16) - 4,
-              fontWeight: FontWeight.w500, // Further reduced weight
-            ),
+            style: textTheme.bodySmall,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           Row(
             children: [
               Expanded(
@@ -141,7 +190,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _currentTierLabel,
+                      planLabel(),
                       style: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w500, // Further reduced weight
                         fontSize: (textTheme.headlineSmall?.fontSize ?? 24) - 4,
@@ -152,7 +201,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
                 ),
               ),
               Text(
-                '$_currentCredits Credits',
+                '$remaining Credits',
                 style: textTheme.titleMedium?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.w500, // Further reduced weight
@@ -170,9 +219,9 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
             alignment: Alignment.centerLeft,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final double fraction = _monthlyCreditsCap == 0
+                final double fraction = cap == 0
                     ? 0
-                    : (_currentCredits / _monthlyCreditsCap).clamp(0.0, 1.0);
+                    : (remaining / cap).clamp(0.0, 1.0);
                 return FractionallySizedBox(
                   widthFactor: fraction,
                   child: Container(
@@ -187,7 +236,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'You have $_currentCredits of $_monthlyCreditsCap credits remaining this month.\nSign up for unlimited access!',
+            'You have $remaining of $cap credits remaining this month.\nSign up for unlimited access!',
             style: textTheme.bodySmall?.copyWith(
               fontSize: (textTheme.bodySmall?.fontSize ?? 12) - 2,
             ),
@@ -202,19 +251,24 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 16),
         Text(
           'Subscription Tiers',
-          style: textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w500, // Further reduced weight
-            fontSize: (textTheme.titleLarge?.fontSize ?? 22) - 4,
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Boost your creations with credit bundles.',
+          style: textTheme.bodyMedium?.copyWith(
+            fontSize: (textTheme.bodyMedium?.fontSize ?? 14) - 2,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Column(
           children: _plans
               .map(
                 (plan) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 20),
                   child: PlanCard(
                     plan: plan,
                     isSelected: _selectedProductId == plan.id,
@@ -240,7 +294,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
             fontSize: (textTheme.titleLarge?.fontSize ?? 22) - 4,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
           'One-time purchase for extra styles.',
           style: textTheme.bodyMedium?.copyWith(

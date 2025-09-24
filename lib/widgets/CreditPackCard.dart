@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hair_styler/theme/app_theme.dart';
 
 import '../models/credit_pack.dart';
 
@@ -22,15 +23,15 @@ class CreditPackCard extends StatelessWidget {
     final Color backgroundColor = isSelected
         ? colorScheme.primary.withOpacity(0.08)
         : Theme.of(context).colorScheme.surface; // Changed for unselected
-    final BoxBorder? border = isSelected
+    final BoxBorder border = isSelected
         ? Border.all(color: colorScheme.primary, width: 1.5)
-        : Border.all(color: Colors.transparent, width: 0); // Changed for unselected
+        : Border.all(color: Colors.transparent, width: 1.5); // Changed for unselected
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Container(
-        width: 160,
+        width: 155,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: backgroundColor,
@@ -42,17 +43,17 @@ class CreditPackCard extends StatelessWidget {
           children: [
             Text(
               '${creditPack.creditAmount}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800,color: AppColors.primary),
             ),
             const SizedBox(height: 4),
             Text(
               'Credits',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).hintColor),
             ),
-            const Spacer(),
+            const SizedBox(height: 6),
             Text(
               creditPack.priceLabel,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
             ),
           ],
         ),
