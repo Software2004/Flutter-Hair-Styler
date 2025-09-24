@@ -103,7 +103,7 @@ class PickedImageLayout extends StatelessWidget {
               const SizedBox(height: 14),
               _circleIcon(context, Icons.share_rounded, onPressed: onShare),
               const SizedBox(height: 14),
-              _circleIcon(context, Icons.save_alt_rounded, onPressed: onSave),
+              _circleIcon(context, Icons.save, onPressed: onSave),
             ],
           ),
         ),

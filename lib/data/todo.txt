@@ -1,0 +1,3 @@
+TODO() Retain the state of the fragment on which the tab is left and new tab is opened.
+TODO() Change the imageView on the list items of the home screen to ensure the hairstyle is perfectly visible.
+TODO() Make sure only appropriate images are loaded as the animatio n images on the intro screen.

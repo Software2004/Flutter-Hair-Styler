@@ -4,11 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-// import 'package:image_picker/image_picker.dart'; // Not used in this file directly
 
 import '../widgets/primary_button.dart';
-// import '../platform/image_picker.dart'; // Not used in this file directly
 import 'home_screen.dart';
+import '../data/style_data_provider.dart';
+import '../models/models.dart';
 
 class IntroScreen extends StatefulWidget {
   static const String routeName = '/intro';
@@ -20,16 +20,14 @@ class IntroScreen extends StatefulWidget {
 }
 
 class _IntroScreenState extends State<IntroScreen> {
-  // Removed PageController and slide-based navigation
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
-  bool _blackOverlayVisible = false; // For 300ms fade-to-black between images
+  bool _blackOverlayVisible = false;
 
   @override
   void initState() {
     super.initState();
-    // Enable edge-to-edge and make system bars transparent on this screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -43,49 +41,49 @@ class _IntroScreenState extends State<IntroScreen> {
   }
 
   Future<void> _loadAssetsAndPlay() async {
+    List<String> imagesToShow = [];
     try {
-      final manifestContent = await rootBundle.loadString('AssetManifest.json');
-      final dynamic decoded = jsonDecode(manifestContent);
+      List<StyleCategory> categories = await StyleDataProvider.getStyleCategories();
+      
+      // Define the desired order and categories to include
+      const categoryOrder = ['Male', 'Female', 'Female Kids'];
 
-      List<String> allAssets = [];
-      if (decoded is Map<String, dynamic>) {
-        if (decoded.containsKey('assets') && decoded['assets'] is Map<String, dynamic>) {
-          allAssets = (decoded['assets'] as Map<String, dynamic>).keys.cast<String>().toList();
-        } else {
-          allAssets = decoded.keys.cast<String>().toList();
+      for (String categoryName in categoryOrder) {
+        final category = categories.firstWhere(
+              (cat) => cat.name == categoryName,
+          orElse: () => StyleCategory(name: '', styles: []), 
+        );
+        for (StyleItem item in category.styles) {
+          imagesToShow.add(item.assetPath);
         }
-      } else if (decoded is List) {
-        allAssets = decoded.cast<String>().toList();
       }
 
-      final candidates = allAssets
-          .where((k) => k.startsWith('assets/images/hairstyles/'))
-          .where((k) => k.toLowerCase().endsWith('.webp'))
-          .toList();
+      print('Found ${imagesToShow.length} hairstyle images in the specified order: $imagesToShow');
 
-      print('Found ${candidates.length} hairstyle images: $candidates');
-
-      if (candidates.isNotEmpty) {
-        setState(() {
-          _images = candidates;
-          _isLoading = false;
-        });
-
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          _autoPlay();
+      if (mounted) {
+        if (imagesToShow.isNotEmpty) {
+          setState(() {
+            _images = imagesToShow;
+            _isLoading = false;
+          });
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            _autoPlay();
+          }
+        } else {
+          print('No hairstyle images found for the specified categories.');
+          setState(() {
+            _isLoading = false;
+          });
         }
-      } else {
-        print('No hairstyle images found in assets');
-        setState(() {
-          _isLoading = false;
-        });
       }
     } catch (e) {
-      print('Error loading assets: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      print('Error loading assets for intro screen: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -96,29 +94,28 @@ class _IntroScreenState extends State<IntroScreen> {
       await Future.delayed(const Duration(seconds: 4));
       if (!mounted) return;
 
-      // Smoothness: pre-cache the next image before transitioning
       final int nextIndex = (_current + 1) % _images.length;
       final String nextPath = _images[nextIndex];
       try {
-        await precacheImage(AssetImage(nextPath), context);
-      } catch (_) {}
+        if (nextPath.isNotEmpty) {
+          await precacheImage(AssetImage(nextPath), context);
+        }
+      } catch (e) {
+        print("Error precaching image $nextPath: $e");
+      }
 
-      // Fade to black over 300ms
       setState(() {
         _blackOverlayVisible = true;
       });
       await Future.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
 
-      // Swap image instantly while black overlay is visible
       setState(() {
         _current = nextIndex;
       });
 
-      // Wait until the frame with the new image is rendered to avoid visible jerk
       await WidgetsBinding.instance.endOfFrame;
 
-      // Fade back from black over 300ms
       if (!mounted) return;
       setState(() {
         _blackOverlayVisible = false;
@@ -136,7 +133,6 @@ class _IntroScreenState extends State<IntroScreen> {
 
   @override
   void dispose() {
-    // Optionally restore UI mode if needed (kept minimal to affect only this screen)
     super.dispose();
   }
 
@@ -148,11 +144,10 @@ class _IntroScreenState extends State<IntroScreen> {
       extendBody: true,
       body: Stack(
         children: [
-          // Background image (single image at a time)
-          if (_images.isNotEmpty)
+          if (_images.isNotEmpty && _current < _images.length && _images[_current].isNotEmpty)
             Positioned.fill(
               child: Transform.rotate(
-                angle: math.pi, // rotate slideshow by 180 degrees
+                angle: math.pi, 
                 child: Container(
                   decoration: BoxDecoration(
                     image: DecorationImage(
@@ -174,7 +169,7 @@ class _IntroScreenState extends State<IntroScreen> {
             const Center(
               child: CircularProgressIndicator(color: Colors.white),
             )
-          else
+          else 
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -186,10 +181,15 @@ class _IntroScreenState extends State<IntroScreen> {
                   ],
                 ),
               ),
+              child: const Center(
+                child: Text(
+                  'Could not load images.',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
             ),
 
           Container(color: Colors.black.withOpacity(0.35)),
-          // Fade-to-black overlay (300ms)
           AnimatedOpacity(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -197,7 +197,6 @@ class _IntroScreenState extends State<IntroScreen> {
             child: Container(color: Colors.black),
           ),
 
-          // Edge-to-edge content (drawn beneath transparent system bars)
           Builder(
             builder: (context) {
               final padding = MediaQuery.of(context).padding;

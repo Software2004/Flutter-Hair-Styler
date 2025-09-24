@@ -421,8 +421,8 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.8,
+                                crossAxisCount: 2, // 2 columns
+                                childAspectRatio: 0.68, // width / height, smaller makes it taller
                                 crossAxisSpacing: 16,
                                 mainAxisSpacing: 16,
                               ),
@@ -503,7 +503,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
     const int crossAxisCount = 2;
     const double crossAxisSpacing = 16;
     const double mainAxisSpacing = 16;
-    const double childAspectRatio = 0.8; // width / height
+    const double childAspectRatio = 0.7; // width / height
 
     final double horizontalPadding = 16 * 2; // from Padding around Grid
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -563,7 +563,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 4,
+              flex: 5,
               child: Container(
                 decoration: const BoxDecoration(
                   borderRadius: BorderRadius.only(
@@ -579,6 +579,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                   child: Image.asset(
                     item.assetPath,
                     fit: BoxFit.cover,
+                    alignment: Alignment.topCenter, // Added this line
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: Colors.grey[300],
@@ -827,7 +828,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                               shrinkWrap: true,
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                childAspectRatio: 0.8,
+                                childAspectRatio: 0.7,
                                 crossAxisSpacing: 16,
                                 mainAxisSpacing: 16,
                               ),
