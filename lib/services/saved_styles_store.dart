@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:path_provider/path_provider.dart';
 import '../models/saved_style.dart';
@@ -37,6 +38,21 @@ class SavedStylesStore {
     final items = await load();
     items.removeWhere((e) => e.id == id);
     await saveAll(items);
+  }
+
+  Stream<List<SavedStyle>> watch() async* {
+    final f = await _file();
+    // Emit initial state
+    yield await load();
+    final Directory dir = f.parent;
+    await for (final event in dir.watch(
+      events: FileSystemEvent.create | FileSystemEvent.modify | FileSystemEvent.delete,
+      recursive: false,
+    )) {
+      if (event.path.endsWith(_fileName)) {
+        yield await load();
+      }
+    }
   }
 }
 

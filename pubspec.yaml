@@ -50,6 +50,7 @@ dependencies:
   http: ^1.2.2
   provider: ^6.1.2
   in_app_purchase: ^3.2.0
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -79,6 +80,7 @@ flutter:
     - assets/images/hairstyles/
     - assets/images/
     - assets/images/ic_launcher_playstore.png
+    - .env
 
 
 flutter_launcher_icons:

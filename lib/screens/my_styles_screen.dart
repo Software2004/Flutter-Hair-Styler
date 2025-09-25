@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -271,11 +272,24 @@ class _MyStylesScreenState extends State<MyStylesScreen>
   _SortOption _sortOption = _SortOption.newest;
   List<SavedStyle> _savedStyles = [];
   final SavedStylesStore _store = SavedStylesStore();
+  StreamSubscription<List<SavedStyle>>? _subscription;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _subscription = _store.watch().listen((items) {
+      if (!mounted) return;
+      setState(() {
+        _savedStyles = items;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -294,10 +308,29 @@ class _MyStylesScreenState extends State<MyStylesScreen>
 
     if (status.isGranted) {
       try {
-        final ByteData byteData = await rootBundle.load(style.imagePath);
-        final Uint8List uint8List = byteData.buffer.asUint8List();
+        Uint8List? imageBytes;
+        if (style.imagePath.startsWith('/')) {
+          // It's a file path
+          final file = File(style.imagePath);
+          if (await file.exists()) {
+            imageBytes = await file.readAsBytes();
+          }
+        } else {
+          // It's an asset path
+          final ByteData byteData = await rootBundle.load(style.imagePath);
+          imageBytes = byteData.buffer.asUint8List();
+        }
+
+        if (imageBytes == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Image data could not be loaded.')),
+          );
+          return;
+        }
+
         final result = await ImageGallerySaver.saveImage(
-          uint8List,
+          imageBytes,
           quality: 90,
           name:
               "${style.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}",
@@ -359,9 +392,10 @@ class _MyStylesScreenState extends State<MyStylesScreen>
     );
 
     if (confirmed == true) {
-      setState(() {
-        _savedStyles.removeWhere((style) => style.id == styleToDelete.id);
-      });
+      // await _store.deleteById(styleToDelete.id); // This line was causing issues, as _load() handles UI update
+      // await _load(); // Let the stream update handle UI changes after deletion
+      await _store.deleteById(styleToDelete.id); // Delete first
+       _load(); // Then reload and let the stream update the UI or update directly
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -390,8 +424,13 @@ class _MyStylesScreenState extends State<MyStylesScreen>
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () async =>
-            Future.delayed(const Duration(milliseconds: 600)),
+        onRefresh: () async {
+          final items = await _store.load();
+          if (!mounted) return;
+          setState(() {
+            _savedStyles = items;
+          });
+        },
         child: CustomScrollView(
           key: const PageStorageKey('my_styles_scroll'),
           slivers: <Widget>[
@@ -505,8 +544,9 @@ class _MyStylesScreenState extends State<MyStylesScreen>
                       },
                       onDownload: () => _handleDownload(item),
                       onDelete: () async {
-                        await _store.deleteById(item.id);
-                        await _load();
+                        // await _store.deleteById(item.id); // Original
+                        // await _load(); // Original
+                        _handleDelete(item); // Call the modified _handleDelete
                       },
                     );
                   }, childCount: filtered.length),

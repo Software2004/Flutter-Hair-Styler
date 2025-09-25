@@ -1,26 +1,26 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
 
-import '../services/image_picker_service.dart';
-import '../services/gemini_service.dart';
-import '../config/secrets.dart';
-import '../services/saved_styles_store.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../models/saved_style.dart';
+import '../models/user_data.dart';
+import '../providers/user_provider.dart';
+import '../services/gemini_service.dart';
+import '../services/image_picker_service.dart';
+import '../services/saved_styles_store.dart';
+import '../services/watermark_util.dart';
 import '../widgets/home_screen_header.dart';
 import '../widgets/outlined_primary_button.dart';
 import '../widgets/picked_image_layout.dart';
 import '../widgets/primary_button.dart';
 import 'privacy_policy_screen.dart';
 import 'view_image_screen.dart';
-import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
-import '../models/user_data.dart';
-import '../services/watermark_util.dart';
 
 class AIRecommendationTab extends StatefulWidget {
   const AIRecommendationTab({super.key});
@@ -45,7 +45,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
   @override
   void initState() {
     super.initState();
-    _gemini = GeminiService(Secrets.geminiApiKey);
+    String apiKey = dotenv.env["GEMINI_API_KEY"] ?? "";
+    print("API KEY ->>" + apiKey);
+    _gemini = GeminiService(apiKey);
   }
 
   Future<void> _startGeneration() async {
@@ -61,9 +63,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
     }
     if (_gemini.apiKey.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gemini API key not set')), 
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gemini API key not set')));
       return;
     }
     setState(() {
@@ -79,9 +81,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Generation failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Generation failed: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -95,43 +97,52 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
     if (_generatedBytes == null) return;
     try {
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/ai_result_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${dir.path}/ai_result_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(_generatedBytes!, flush: true);
       if (!mounted) return;
       Navigator.pushNamed(
         context,
         ViewImageScreen.routeName,
-        arguments: {
-          'imagePath': file.path,
-          'title': 'AI Result',
-        },
+        arguments: {'imagePath': file.path, 'title': 'AI Result'},
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Open failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Open failed: $e')));
     }
   }
 
   Future<void> _shareCurrent() async {
     try {
       final plan = context.read<UserProvider>().plan;
-      Uint8List bytes = _generatedBytes ?? await File(_pickedImage!.path).readAsBytes();
+      Uint8List bytes =
+          _generatedBytes ?? await File(_pickedImage!.path).readAsBytes();
       if (plan == SubscriptionPlanType.free && _generatedBytes != null) {
         bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
       }
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(bytes, flush: true);
       await Share.shareXFiles([XFile(file.path)], text: 'AI Hair Styler');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Share failed: $e')));
     }
   }
+
   Future<void> _saveCurrent() async {
     try {
       if (_generatedBytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generate an image first')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generate an image first')),
+        );
         return;
       }
       final plan = context.read<UserProvider>().plan;
@@ -140,7 +151,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
         toWrite = await WatermarkUtil.applyWatermark(imageBytes: toWrite);
       }
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(toWrite, flush: true);
 
       final saved = SavedStyle(
@@ -151,12 +164,17 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
       );
       await _store.append(saved);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
     }
   }
+
   void _compareOriginal() {}
 
   Future<void> _pickFromGallery() async {
@@ -240,46 +258,51 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
             const HomeScreenHeader(),
             Expanded(
               child: Stack(
-              children: [
-                PickedImageLayout(
-              imagePath: imagePath,
-              onBack: () => setState(() => _pickedImage = null),
-              onChangeStyle: _startGeneration,
-              onRotateLeft: () => setState(() => _rotationTurns = (_rotationTurns - 1) % 4),
-              onRotateRight: () => setState(() => _rotationTurns = (_rotationTurns + 1) % 4),
-              onShare: _shareCurrent,
-              onSave: _saveCurrent,
-              onCompare: _compareOriginal,
-              generatedBytes: _generatedBytes,
-              rotationQuarterTurns: _rotationTurns.round(),
-              onTap: () {
-                final title = _generatedBytes != null ? 'AI Result' : 'Preview';
-                if (_generatedBytes != null) {
-                  _openGeneratedInViewer();
-                } else {
-                  Navigator.pushNamed(
-                    context,
-                    ViewImageScreen.routeName,
-                    arguments: {
-                      'imagePath': imagePath,
-                      'title': title,
+                children: [
+                  PickedImageLayout(
+                    imagePath: imagePath,
+                    onBack: () => setState(() => _pickedImage = null),
+                    onChangeStyle: _startGeneration,
+                    onRotateLeft: () => setState(
+                      () => _rotationTurns = (_rotationTurns - 1) % 4,
+                    ),
+                    onRotateRight: () => setState(
+                      () => _rotationTurns = (_rotationTurns + 1) % 4,
+                    ),
+                    onShare: _shareCurrent,
+                    onSave: _saveCurrent,
+                    onCompare: _compareOriginal,
+                    generatedBytes: _generatedBytes,
+                    rotationQuarterTurns: _rotationTurns.round(),
+                    onTap: () {
+                      final title = _generatedBytes != null
+                          ? 'AI Result'
+                          : 'Preview';
+                      if (_generatedBytes != null) {
+                        _openGeneratedInViewer();
+                      } else {
+                        Navigator.pushNamed(
+                          context,
+                          ViewImageScreen.routeName,
+                          arguments: {'imagePath': imagePath, 'title': title},
+                        );
+                      }
                     },
-                  );
-                }
-              },
-              showOriginalOverride: _showOriginal,
-              onComparePressStart: () => setState(() => _showOriginal = true),
-              onComparePressEnd: () => setState(() => _showOriginal = false),
-            ),
-            if (_isGenerating)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withOpacity(0.35),
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
+                    showOriginalOverride: _showOriginal,
+                    onComparePressStart: () =>
+                        setState(() => _showOriginal = true),
+                    onComparePressEnd: () =>
+                        setState(() => _showOriginal = false),
+                  ),
+                  if (_isGenerating)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.35),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
               ),
-              ],
-            ),
             ),
           ],
         ),
@@ -315,10 +338,10 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
                   Text(
                     'For best results, use a clear, front-facing photo with your hair pulled back.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.7),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -369,7 +392,7 @@ class _InstructionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32,horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -382,7 +405,11 @@ class _InstructionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.account_circle, size: 54,color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+          Icon(
+            Icons.account_circle,
+            size: 54,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
           const SizedBox(height: 12),
           Text(
             'Clear frontal face shot',
@@ -396,9 +423,7 @@ class _InstructionCard extends StatelessWidget {
             'No glasses or hats',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withOpacity(0.7)
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             ),
           ),
         ],
@@ -411,8 +436,9 @@ class _PrivacyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),fontSize: 12
-        );
+      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+      fontSize: 12,
+    );
     return Text.rich(
       TextSpan(
         text:
@@ -427,10 +453,8 @@ class _PrivacyNote extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
             recognizer: TapGestureRecognizer()
-              ..onTap = () => Navigator.pushNamed(
-                    context,
-                    PrivacyPolicyScreen.routeName,
-                  ),
+              ..onTap = () =>
+                  Navigator.pushNamed(context, PrivacyPolicyScreen.routeName),
           ),
         ],
       ),

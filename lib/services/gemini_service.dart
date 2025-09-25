@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 class GeminiResult {
   final Uint8List bytes;
   final String? styleName;
+
   GeminiResult(this.bytes, this.styleName);
 }
 
@@ -27,17 +29,15 @@ class GeminiService {
         {
           'role': 'user',
           'parts': [
-            {
-              'text': _aiPrompt,
-            },
+            {'text': _aiPrompt},
             {
               'inlineData': {
                 'mimeType': 'image/${_mimeFromPath(imageFile.path)}',
                 'data': base64Data,
-              }
-            }
-          ]
-        }
+              },
+            },
+          ],
+        },
       ],
       'generationConfig': {
         'temperature': 0.1,
@@ -49,14 +49,25 @@ class GeminiService {
       'safetySettings': [
         {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
         {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
-        {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
-        {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'},
-      ]
+        {
+          'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          'threshold': 'BLOCK_NONE',
+        },
+        {
+          'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          'threshold': 'BLOCK_NONE',
+        },
+      ],
     };
 
+    _ensureApiKey();
     final uri = Uri.parse('$_endpoint?key=$apiKey');
     final res = await http
-        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(request))
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(request),
+        )
         .timeout(const Duration(minutes: 2));
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -72,22 +83,29 @@ class GeminiService {
   }) async {
     final String base64Data = base64Encode(await imageFile.readAsBytes());
 
+    // Strengthen instructions so the model always returns an edited image inline
+    final String composedPrompt =
+        """
+Apply the following hairstyle to the person in the provided image. Keep the person's face, expression, skin, pose, and all non-hair details completely unchanged. Start your response with the exact style name followed by a colon on the first line, then include exactly one edited image as inline data (do not provide links or file references).
+
+Hairstyle to apply:
+$prompt
+""".trim();
+
     final request = {
       'contents': [
         {
           'role': 'user',
           'parts': [
-            {
-              'text': prompt,
-            },
+            {'text': composedPrompt},
             {
               'inlineData': {
                 'mimeType': 'image/${_mimeFromPath(imageFile.path)}',
                 'data': base64Data,
-              }
-            }
-          ]
-        }
+              },
+            },
+          ],
+        },
       ],
       'generationConfig': {
         'temperature': 0.1,
@@ -99,14 +117,25 @@ class GeminiService {
       'safetySettings': [
         {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
         {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
-        {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
-        {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'},
-      ]
+        {
+          'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          'threshold': 'BLOCK_NONE',
+        },
+        {
+          'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          'threshold': 'BLOCK_NONE',
+        },
+      ],
     };
 
+    _ensureApiKey();
     final uri = Uri.parse('$_endpoint?key=$apiKey');
     final res = await http
-        .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(request))
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(request),
+        )
         .timeout(const Duration(minutes: 2));
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -116,11 +145,20 @@ class GeminiService {
     return _parseResponse(res.body);
   }
 
+  void _ensureApiKey() {
+    if (apiKey.isEmpty) {
+      throw StateError(
+          'GEMINI_API_KEY is missing. Set it in .env and ensure it is bundled as an asset.');
+    }
+  }
+
   GeminiResult _parseResponse(String bodyStr) {
     final dynamic body = jsonDecode(bodyStr);
     if (body is Map && body['error'] != null) {
       final err = body['error'];
-      final msg = err is Map && err['message'] is String ? err['message'] : 'Unknown API error';
+      final msg = err is Map && err['message'] is String
+          ? err['message']
+          : 'Unknown API error';
       throw Exception('Gemini API error: $msg');
     }
     final candidates = body['candidates'] as List?;
@@ -142,11 +180,16 @@ class GeminiService {
         }
       }
       // Handle possible variations in response keys
-      final inline = p['inlineData'] ?? p['inline_data'] ?? p['fileData'] ?? p['file_data'];
+      final inline =
+          p['inlineData'] ??
+          p['inline_data'] ??
+          p['fileData'] ??
+          p['file_data'];
       if (inline is Map) {
         final mime = inline['mimeType'] ?? inline['mime_type'];
         if (mime is String && mime.startsWith('image/')) {
-          final data = inline['data'] ?? inline['bytesBase64'] ?? inline['bytes_base64'];
+          final data =
+              inline['data'] ?? inline['bytesBase64'] ?? inline['bytes_base64'];
           if (data is String && data.isNotEmpty) {
             imageBytes = Uint8List.fromList(base64Decode(data));
           }
@@ -172,5 +215,3 @@ class GeminiService {
   static const String _aiPrompt =
       'Analyze this person\'s image and apply the BEST SUITED hairstyle from the provided options. Start your response with the chosen style name followed by a colon, then include the styled image. Keep face unchanged.';
 }
-
-
