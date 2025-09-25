@@ -29,7 +29,8 @@ class AIRecommendationTab extends StatefulWidget {
   State<AIRecommendationTab> createState() => _AIRecommendationTabState();
 }
 
-class _AIRecommendationTabState extends State<AIRecommendationTab> {
+class _AIRecommendationTabState extends State<AIRecommendationTab>
+    with AutomaticKeepAliveClientMixin {
   XFile? _pickedImage;
   bool _isPicking = false;
   bool _isGenerating = false;
@@ -228,6 +229,7 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_pickedImage != null) {
       final imagePath = _pickedImage!.path;
       return SafeArea(
@@ -291,6 +293,7 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
           const HomeScreenHeader(),
           Expanded(
             child: SingleChildScrollView(
+              key: const PageStorageKey('ai_tab_scroll'),
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: Column(
                 children: [
@@ -356,6 +359,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab> {
       ),
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _InstructionCard extends StatelessWidget {

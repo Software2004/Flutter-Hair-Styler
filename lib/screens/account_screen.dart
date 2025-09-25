@@ -18,7 +18,8 @@ class AccountScreen extends StatefulWidget {
   State<AccountScreen> createState() => _AccountScreenState();
 }
 
-class _AccountScreenState extends State<AccountScreen> {
+class _AccountScreenState extends State<AccountScreen>
+    with AutomaticKeepAliveClientMixin {
   // Controls the vertical gap between the last info card and the info tiles section
 
   Future<void> _launchSupportEmail() async {
@@ -54,6 +55,7 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<UserProvider?>();
     final credits = provider?.remainingCredits ?? 0;
     final plan = provider?.plan ?? SubscriptionPlanType.free;
@@ -63,6 +65,7 @@ class _AccountScreenState extends State<AccountScreen> {
       SubscriptionPlanType.pro => 'Pro',
     };
     return SingleChildScrollView(
+      key: const PageStorageKey('account_scroll'),
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -182,7 +185,11 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
+
 
 class _InfoCard extends StatelessWidget {
   final String title;

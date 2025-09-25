@@ -37,9 +37,25 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  late final PageStorageBucket _bucket;
+  late final List<Widget> _tabs;
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    _bucket = PageStorageBucket();
+    // Keep a single instance of each tab to preserve state
+    _tabs = const [
+      _HomeTab(key: ValueKey('tab_home')),
+      AIRecommendationTab(key: ValueKey('tab_ai')),
+      MyStylesScreen(key: ValueKey('tab_my_styles')),
+      AccountScreen(key: ValueKey('tab_account')),
+    ];
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     // Ensure system status/navigation bars match current theme background
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).colorScheme.background;
@@ -49,22 +65,22 @@ class _HomeScreenState extends State<HomeScreen> {
         statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
         systemNavigationBarColor: bgColor,
-        systemNavigationBarIconBrightness: isDark
-            ? Brightness.light
-            : Brightness.dark,
+        systemNavigationBarIconBrightness:
+            isDark ? Brightness.light : Brightness.dark,
       ),
     );
-    // Updated pages list to include MyStylesScreen
-    final pages = [
-      const _HomeTab(),
-      const AIRecommendationTab(),
-      // This could be next to implement
-      const MyStylesScreen(),
-      // Replaced _PlaceholderTab with MyStylesScreen
-      const AccountScreen(),
-    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      body: pages[_currentIndex],
+      body: PageStorage(
+        bucket: _bucket,
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _tabs,
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Container(
@@ -125,13 +141,14 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({super.key});
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
+class _HomeTabState extends State<_HomeTab>
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final List<String> _categories = const [
     'Male',
     'Female',
@@ -224,6 +241,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return WillPopScope(
       onWillPop: () async {
         if (_pickedImage != null) {
@@ -234,6 +252,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
       },
       child: SafeArea(
         child: CustomScrollView(
+          key: const PageStorageKey('home_tab_scroll'),
           slivers: [
             const SliverToBoxAdapter(child: HomeScreenHeader()),
             if (_pickedImage == null)
@@ -860,7 +879,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
                         onPressed: () async {
                           Navigator.of(context).pop();
                           if (selected != null && selected.prompt.isNotEmpty) {
-                            await _startGenerationWithPrompt(selected.prompt, selected!.name);
+                            await _startGenerationWithPrompt(selected.prompt, selected.name);
                           } else {
                             await _startGeneration();
                           }
@@ -1046,4 +1065,7 @@ class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   }
 
   void _compareOriginal() {}
+
+  @override
+  bool get wantKeepAlive => true;
 }

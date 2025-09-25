@@ -265,7 +265,8 @@ class _StyleTile extends StatelessWidget {
   }
 }
 
-class _MyStylesScreenState extends State<MyStylesScreen> {
+class _MyStylesScreenState extends State<MyStylesScreen>
+    with AutomaticKeepAliveClientMixin {
   String _query = '';
   _SortOption _sortOption = _SortOption.newest;
   List<SavedStyle> _savedStyles = [];
@@ -370,6 +371,7 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final textTheme = Theme.of(context).textTheme;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -391,6 +393,7 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
         onRefresh: () async =>
             Future.delayed(const Duration(milliseconds: 600)),
         child: CustomScrollView(
+          key: const PageStorageKey('my_styles_scroll'),
           slivers: <Widget>[
             SliverAppBar(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -534,4 +537,7 @@ class _MyStylesScreenState extends State<MyStylesScreen> {
     }
     return result;
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }

@@ -1,8 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/services.dart';
 
 import '../widgets/primary_button.dart';
@@ -23,7 +23,10 @@ class _IntroScreenState extends State<IntroScreen> {
   List<String> _images = [];
   int _current = 0;
   bool _isLoading = true;
-  bool _blackOverlayVisible = false;
+  Timer? _slideshowTimer;
+
+  static const Duration _slideInterval = Duration(seconds: 4);
+  static const Duration _fadeDuration = Duration(milliseconds: 2000);
 
   @override
   void initState() {
@@ -68,7 +71,7 @@ class _IntroScreenState extends State<IntroScreen> {
           });
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted) {
-            _autoPlay();
+            _startSlideshowTimer();
           }
         } else {
           print('No hairstyle images found for the specified categories.');
@@ -77,8 +80,9 @@ class _IntroScreenState extends State<IntroScreen> {
           });
         }
       }
-    } catch (e) {
+    } catch (e, s) {
       print('Error loading assets for intro screen: $e');
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'IntroScreen _loadAssetsAndPlay failed');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -87,41 +91,36 @@ class _IntroScreenState extends State<IntroScreen> {
     }
   }
 
-  Future<void> _autoPlay() async {
+  void _startSlideshowTimer() {
+    _slideshowTimer?.cancel();
     if (_images.isEmpty) return;
-
-    while (mounted && _images.isNotEmpty) {
-      await Future.delayed(const Duration(seconds: 4));
-      if (!mounted) return;
+    _slideshowTimer = Timer.periodic(_slideInterval, (timer) async {
+      if (!mounted || _images.isEmpty) return;
 
       final int nextIndex = (_current + 1) % _images.length;
+      // Precache next 2 images ahead to smooth transitions
       final String nextPath = _images[nextIndex];
+      final String secondNextPath = _images[(nextIndex + 1) % _images.length];
       try {
-        if (nextPath.isNotEmpty) {
-          await precacheImage(AssetImage(nextPath), context);
-        }
-      } catch (e) {
-        print("Error precaching image $nextPath: $e");
+        await Future.wait([
+          if (nextPath.isNotEmpty) precacheImage(AssetImage(nextPath), context),
+          if (secondNextPath.isNotEmpty) precacheImage(AssetImage(secondNextPath), context),
+        ]);
+      } catch (e, s) {
+        print('Error precaching images: $e');
+        FirebaseCrashlytics.instance.recordError(e, s, reason: 'IntroScreen precache failed');
       }
 
-      setState(() {
-        _blackOverlayVisible = true;
-      });
-      await Future.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
-
       setState(() {
         _current = nextIndex;
       });
+    });
+  }
 
-      await WidgetsBinding.instance.endOfFrame;
-
-      if (!mounted) return;
-      setState(() {
-        _blackOverlayVisible = false;
-      });
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
+  void _stopSlideshowTimer() {
+    _slideshowTimer?.cancel();
+    _slideshowTimer = null;
   }
 
   Future<void> _agreeAndContinue() async {
@@ -133,12 +132,17 @@ class _IntroScreenState extends State<IntroScreen> {
 
   @override
   void dispose() {
+    _stopSlideshowTimer();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     const onDark = Colors.white;
+    final size = MediaQuery.of(context).size;
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final targetWidth = (size.width * pixelRatio).round();
+    final targetHeight = (size.height * pixelRatio).round();
 
     return Scaffold(
       extendBody: true,
@@ -146,20 +150,30 @@ class _IntroScreenState extends State<IntroScreen> {
         children: [
           if (_images.isNotEmpty && _current < _images.length && _images[_current].isNotEmpty)
             Positioned.fill(
-              child: Transform.rotate(
-                angle: math.pi, 
-                child: Container(
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(_images[_current]),
-                      fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(
-                        Colors.black.withOpacity(0.2),
-                        BlendMode.darken,
+              child: AnimatedSwitcher(
+                duration: _fadeDuration,
+                switchInCurve: Curves.easeInOut,
+                switchOutCurve: Curves.easeInOut,
+                child: Transform.rotate(
+                  key: ValueKey(_images[_current]),
+                  angle: math.pi,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: ResizeImage(
+                          AssetImage(_images[_current]),
+                          width: targetWidth,
+                          height: targetHeight,
+                        ),
+                        fit: BoxFit.cover,
+                        colorFilter: ColorFilter.mode(
+                          Colors.black.withOpacity(0.2),
+                          BlendMode.darken,
+                        ),
+                        onError: (error, stackTrace) {
+                          print('Error loading image ${_images[_current]}: $error');
+                        },
                       ),
-                      onError: (error, stackTrace) {
-                        print('Error loading image ${_images[_current]}: $error');
-                      },
                     ),
                   ),
                 ),
@@ -188,14 +202,7 @@ class _IntroScreenState extends State<IntroScreen> {
                 ),
               ),
             ),
-
           Container(color: Colors.black.withOpacity(0.35)),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            opacity: _blackOverlayVisible ? 1.0 : 0.0,
-            child: Container(color: Colors.black),
-          ),
 
           Builder(
             builder: (context) {

@@ -10,6 +10,7 @@ import '../widgets/CreditPackCard.dart';
 import '../widgets/PlanCard.dart';
 import '../widgets/primary_button.dart';
 import 'login_screen.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 /// Manage Subscription screen implementing selection logic and responsive layout.
 class ManageSubscriptionScreen extends StatefulWidget {
@@ -70,14 +71,19 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       Navigator.pushNamed(context, LoginScreen.routeName).then((_) {
-        // After login, return to this screen and continue flow
         if (mounted) setState(() {});
+      }).catchError((e, s) {
+        FirebaseCrashlytics.instance.recordError(e, s, reason: 'Navigate to login from subscription failed');
       });
       return;
     }
     // Stub purchase flow start
-    debugPrint('Proceed to purchase: $_selectedProductId for user ${user.uid}');
-    // TODO: Query products and start purchase using in_app_purchase
+    try {
+      debugPrint('Proceed to purchase: $_selectedProductId for user ${user.uid}');
+      // TODO: Query products and start purchase using in_app_purchase
+    } catch (e, s) {
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'Start purchase flow failed');
+    }
   }
 
   String _ctaLabel(BuildContext context) {
@@ -99,7 +105,8 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
-    final plan = context.watch<UserProvider>().plan;
+    final plan = context.select<UserProvider, SubscriptionPlanType>((p) => p.plan);
+    final remainingCredits = context.select<UserProvider, int>((p) => p.remainingCredits);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,7 +123,7 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCurrentPlanCard(context),
+              _buildCurrentPlanCard(context, plan, remainingCredits),
               const SizedBox(height: 16),
               _buildSubscriptionTiers(context),
               const SizedBox(height: 16),
@@ -128,21 +135,23 @@ class _ManageSubscriptionScreenState extends State<ManageSubscriptionScreen> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: PrimaryButton(
-          label: _ctaLabel(context),
-          onPressed: (){
-            _selectedProductId == null ? null : _handleUpgrade;
-          },
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: PrimaryButton(
+            key: ValueKey<String>(_ctaLabel(context)),
+            label: _ctaLabel(context),
+            onPressed: (){
+              _selectedProductId == null ? null : _handleUpgrade;
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCurrentPlanCard(BuildContext context) {
+  Widget _buildCurrentPlanCard(BuildContext context, SubscriptionPlanType planType, int remaining) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
     final TextTheme textTheme = Theme.of(context).textTheme;
-    final planType = context.watch<UserProvider>().plan;
-    final remaining = context.watch<UserProvider>().remainingCredits;
 
     String planLabel() {
       switch (planType) {

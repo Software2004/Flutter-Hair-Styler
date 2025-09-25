@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../widgets/custom_input_field.dart';
 import '../widgets/primary_button.dart';
 import 'auth_service.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
@@ -21,6 +21,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+
+  static const Duration _routeAnimDuration = Duration(milliseconds: 280);
+
+  PageRouteBuilder _buildSlideUpRoute(Widget page) {
+    return PageRouteBuilder(
+      transitionDuration: _routeAnimDuration,
+      reverseTransitionDuration: _routeAnimDuration,
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final offsetTween = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero);
+        return SlideTransition(position: offsetTween.animate(curved), child: child);
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -47,7 +66,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         Navigator.pushReplacementNamed(context, HomeScreen.routeName);
       }
-    } catch (e) {
+    } catch (e, s) {
+      FirebaseCrashlytics.instance.recordError(e, s, reason: 'Login failed');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -142,20 +162,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 40),
                 // Sign in button
-                _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
-                    : PrimaryButton(
-                        label: 'Sign In',
-                        onPressed: _signIn,
-                      ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _isLoading
+                      ? const Center(
+                          key: ValueKey('login-loading'),
+                          child: SizedBox(height: 48, width: 48, child: CircularProgressIndicator()),
+                        )
+                      : PrimaryButton(
+                          key: const ValueKey('login-button'),
+                          label: 'Sign In',
+                          onPressed: _signIn,
+                        ),
+                ),
                 const SizedBox(height: 30),
                 // Sign up link
                 Center(
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, SignupScreen.routeName);
+                      Navigator.of(context).push(_buildSlideUpRoute(const SignupScreen()));
                     },
                     child: RichText(
                       text: TextSpan(
