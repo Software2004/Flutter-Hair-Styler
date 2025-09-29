@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/share_text.dart';
 
 import '../data/style_data_provider.dart';
 import '../models/models.dart';
@@ -56,6 +58,8 @@ class _HomeTabState extends State<HomeTab>
   bool _showOriginal = false;
   String? _generatedStyleName;
   final SavedStylesStore _store = SavedStylesStore();
+  bool _isSaving = false;
+  String? _lastSavedSignature;
 
   late final GeminiService _gemini;
 
@@ -185,7 +189,7 @@ class _HomeTabState extends State<HomeTab>
                       const SizedBox(height: 48),
                       Center(
                         child: Text(
-                          'Your Style Previews',
+                          'AI Style Previews',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
@@ -834,6 +838,7 @@ class _HomeTabState extends State<HomeTab>
       setState(() {
         _generatedBytes = result.bytes;
         _generatedStyleName = styleName;
+        _lastSavedSignature = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -877,6 +882,7 @@ class _HomeTabState extends State<HomeTab>
       setState(() {
         _generatedBytes = result.bytes;
         _generatedStyleName = result.styleName;
+        _lastSavedSignature = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -927,7 +933,8 @@ class _HomeTabState extends State<HomeTab>
         '${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(bytes, flush: true);
-      await Share.shareXFiles([XFile(file.path)], text: 'AI Hair Styler');
+      final shareMessage = buildShareText(styleName: _generatedStyleName);
+      await Share.shareXFiles([XFile(file.path)], text: shareMessage);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -944,11 +951,24 @@ class _HomeTabState extends State<HomeTab>
         );
         return;
       }
+      if (_isSaving) {
+        return;
+      }
       final plan = context.read<UserProvider>().plan;
       Uint8List toWrite = _generatedBytes!;
       if (plan == SubscriptionPlanType.free) {
         toWrite = await WatermarkUtil.applyWatermark(imageBytes: toWrite);
       }
+
+      final String signature = _signatureForBytes(toWrite);
+      if (_lastSavedSignature == signature) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This result is already saved')),
+        );
+        return;
+      }
+
+      _isSaving = true;
       final dir = await getApplicationDocumentsDirectory();
       final file = File(
         '${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png',
@@ -963,6 +983,7 @@ class _HomeTabState extends State<HomeTab>
       );
       await _store.append(saved);
       if (!mounted) return;
+      _lastSavedSignature = signature;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
@@ -972,10 +993,23 @@ class _HomeTabState extends State<HomeTab>
         context,
       ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
     }
+    finally {
+      _isSaving = false;
+    }
   }
 
   void _compareOriginal() {}
 
   @override
   bool get wantKeepAlive => true;
+}
+
+// Compute a lightweight signature to detect duplicate saves for the same bytes
+String _signatureForBytes(Uint8List bytes) {
+  final int len = bytes.length;
+  if (len == 0) return '0:';
+  final int take = len < 128 ? len : 64;
+  final String head = base64Encode(bytes.sublist(0, take));
+  final String tail = base64Encode(bytes.sublist(len - take, len));
+  return '$len:$head:$tail';
 }

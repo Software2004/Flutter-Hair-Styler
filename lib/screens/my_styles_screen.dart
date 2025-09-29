@@ -303,51 +303,42 @@ class _MyStylesScreenState extends State<MyStylesScreen>
   }
 
   Future<void> _handleDownload(SavedStyle style) async {
-    var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-    }
+    try {
+      // On modern Android (Android 10+), writing via MediaStore does not require
+      // legacy storage permission. Android 13 deprecates READ/WRITE_EXTERNAL_STORAGE
+      // and requesting it will always be denied. We bypass that check and
+      // directly save using `gal` which handles MediaStore.
 
-    if (status.isGranted) {
-      try {
-        Uint8List? imageBytes;
-        if (style.imagePath.startsWith('/')) {
-          // It's a file path
-          final file = File(style.imagePath);
-          if (await file.exists()) {
-            imageBytes = await file.readAsBytes();
-          }
-        } else {
-          // It's an asset path
-          final ByteData byteData = await rootBundle.load(style.imagePath);
-          imageBytes = byteData.buffer.asUint8List();
+      Uint8List? imageBytes;
+      if (style.imagePath.startsWith('/')) {
+        final file = File(style.imagePath);
+        if (await file.exists()) {
+          imageBytes = await file.readAsBytes();
         }
+      } else {
+        final ByteData byteData = await rootBundle.load(style.imagePath);
+        imageBytes = byteData.buffer.asUint8List();
+      }
 
-        if (imageBytes == null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image data could not be loaded.')),
-          );
-          return;
-        }
-
-        await Gal.putImageBytes(imageBytes);
-
+      if (imageBytes == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Image saved to gallery!')),
+          const SnackBar(content: Text('Image data could not be loaded.')),
         );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error saving image: $e')));
+        return;
       }
-    } else {
+
+      await Gal.putImageBytes(imageBytes);
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Storage permission denied.')),
+        const SnackBar(content: Text('Image saved to gallery!')),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error saving image: $e')));
     }
   }
 

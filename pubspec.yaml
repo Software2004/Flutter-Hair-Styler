@@ -78,18 +78,18 @@ flutter:
 
   assets:
     # Using online images for now; keep folder reserved for future local assets
-    - assets/images/hairstyles/
     - assets/images/
-    - assets/images/ic_launcher_playstore.png
+    - assets/images/hairstyles/
     - .env
 
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: false
-  image_path: "assets/images/logo.png"
+  image_path: "assets/images/logo_padded.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: assets/images/logo.png
+  adaptive_icon_foreground: assets/images/logo_padded.png
+  adaptive_icon_padding: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

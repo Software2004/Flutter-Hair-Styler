@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
 import '../widgets/primary_button.dart';
 
 class PickedImageLayout extends StatelessWidget {
@@ -48,10 +49,7 @@ class PickedImageLayout extends StatelessWidget {
             child: RotatedBox(
               quarterTurns: rotationQuarterTurns % 4,
               child: (generatedBytes != null && !showOriginalOverride)
-                  ? Image.memory(
-                      generatedBytes!,
-                      fit: BoxFit.contain,
-                    )
+                  ? Image.memory(generatedBytes!, fit: BoxFit.contain)
                   : Image.file(
                       File(imagePath),
                       fit: BoxFit.contain,
@@ -88,39 +86,45 @@ class PickedImageLayout extends StatelessWidget {
             onPressed: onBack,
           ),
         ),
+        // Share button moved to top right as the only item
         Positioned(
           top: 20,
           right: 16,
-          child: Column(
-            children: [
-              _pressableCircleIcon(
-                context,
-                Icons.compare_rounded,
-                onPressed: onCompare,
-                onPressStart: onComparePressStart,
-                onPressEnd: onComparePressEnd,
-              ),
-              const SizedBox(height: 14),
-              _circleIcon(context, Icons.share_rounded, onPressed: onShare),
-              const SizedBox(height: 14),
-              _circleIcon(context, Icons.save, onPressed: onSave),
-            ],
-          ),
+          child: _circleIcon(context, Icons.share_rounded, onPressed: onShare),
         ),
+        // Row with Compare, Rotate Left, Rotate Right, Save
         Positioned(
-          bottom: 110,
+          bottom: 90,
           left: 0,
           right: 0,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _circleIcon(context, Icons.rotate_left_rounded, onPressed: onRotateLeft),
-              _circleIcon(context, Icons.rotate_right_rounded, onPressed: onRotateRight),
+              _circleIcon(context, Icons.save, onPressed: onSave),
+              // Save button
+              _circleIcon(
+                context,
+                Icons.rotate_left_rounded,
+                onPressed: onRotateLeft,
+              ),
+              // Rotate Left
+              _circleIcon(
+                context,
+                Icons.rotate_right_rounded,
+                onPressed: onRotateRight,
+              ),
+              _pressableCircleIcon(
+                context,
+                Icons.compare_rounded, // Compare button
+                onPressed: onCompare,
+                onPressStart: onComparePressStart,
+                onPressEnd: onComparePressEnd,
+              ),
             ],
           ),
         ),
         Positioned(
-          bottom: 24,
+          bottom: 20,
           left: 20,
           right: 20,
           child: PrimaryButton(
@@ -168,5 +172,3 @@ class PickedImageLayout extends StatelessWidget {
     );
   }
 }
-
-

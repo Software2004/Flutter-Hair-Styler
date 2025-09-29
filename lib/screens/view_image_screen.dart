@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../models/user_data.dart';
 import '../services/watermark_util.dart';
+import '../services/share_text.dart';
 
 class ViewImageScreen extends StatefulWidget {
   static const String routeName = '/view-image';
@@ -27,6 +28,7 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
   Future<void> _share() async {
     try {
       final plan = context.read<UserProvider>().plan;
+      final String shareMessage = buildShareText();
       if (widget.imagePath.startsWith('/')) {
         Uint8List bytes = await File(widget.imagePath).readAsBytes();
         if (plan == SubscriptionPlanType.free) {
@@ -35,9 +37,9 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
           final String tempPath = '${tempDir.path}/shared_image_${DateTime.now().millisecondsSinceEpoch}.png';
           final File file = File(tempPath);
           await file.writeAsBytes(bytes, flush: true);
-          await Share.shareXFiles([XFile(file.path)], text: widget.title);
+          await Share.shareXFiles([XFile(file.path)], text: shareMessage);
         } else {
-          await Share.shareXFiles([XFile(widget.imagePath)], text: widget.title);
+          await Share.shareXFiles([XFile(widget.imagePath)], text: shareMessage);
         }
       } else {
         // Copy asset to a temporary file so we can share the image with caption
@@ -52,7 +54,7 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
           bytes = await WatermarkUtil.applyWatermark(imageBytes: bytes);
         }
         await file.writeAsBytes(bytes, flush: true);
-        await Share.shareXFiles([XFile(file.path)], text: widget.title);
+        await Share.shareXFiles([XFile(file.path)], text: shareMessage);
       }
     } catch (e) {
       if (mounted) {
@@ -125,10 +127,17 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
   Widget _buildImageWidget() {
     final plan = context.watch<UserProvider>().plan;
     final isFree = plan == SubscriptionPlanType.free;
+    final bool isAsset = !widget.imagePath.startsWith('/');
+    // Generated previews opened from Home/AI tabs use a temp path with 'ai_result_'
+    final bool isGeneratedPreview = widget.imagePath.startsWith('/') && widget.imagePath.contains('ai_result_');
     final image = widget.imagePath.startsWith('/')
         ? Image.file(File(widget.imagePath), fit: BoxFit.contain)
         : Image.asset(widget.imagePath, fit: BoxFit.contain);
-    if (!isFree) return image;
+    // Show overlay watermark for:
+    // - Asset previews from tab layout
+    // - Freshly generated previews (temp files named with 'ai_result_')
+    // Do NOT overlay for saved/generated files that may already have a baked watermark
+    if (!(isFree && (isAsset || isGeneratedPreview))) return image;
     return Stack(
       children: [
         image,

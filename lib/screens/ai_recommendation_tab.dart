@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/share_text.dart';
 
 import '../models/saved_style.dart';
 import '../models/user_data.dart';
@@ -39,6 +41,8 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
   bool _showOriginal = false;
   String? _generatedStyleName;
   final SavedStylesStore _store = SavedStylesStore();
+  bool _isSaving = false;
+  String? _lastSavedSignature;
 
   late final GeminiService _gemini;
 
@@ -77,6 +81,7 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
       setState(() {
         _generatedBytes = result.bytes;
         _generatedStyleName = result.styleName;
+        _lastSavedSignature = null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -127,7 +132,8 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
         '${dir.path}/share_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(bytes, flush: true);
-      await Share.shareXFiles([XFile(file.path)], text: 'AI Hair Styler');
+      final shareMessage = buildShareText(styleName: _generatedStyleName);
+      await Share.shareXFiles([XFile(file.path)], text: shareMessage);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -144,11 +150,24 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
         );
         return;
       }
+      if (_isSaving) {
+        return;
+      }
       final plan = context.read<UserProvider>().plan;
       Uint8List toWrite = _generatedBytes!;
       if (plan == SubscriptionPlanType.free) {
         toWrite = await WatermarkUtil.applyWatermark(imageBytes: toWrite);
       }
+
+      final String signature = _signatureForBytes(toWrite);
+      if (_lastSavedSignature == signature) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This result is already saved')),
+        );
+        return;
+      }
+
+      _isSaving = true;
       final dir = await getApplicationDocumentsDirectory();
       final file = File(
         '${dir.path}/ai_${DateTime.now().millisecondsSinceEpoch}.png',
@@ -163,6 +182,7 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
       );
       await _store.append(saved);
       if (!mounted) return;
+      _lastSavedSignature = signature;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Saved to My Styles')));
@@ -171,6 +191,9 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+    }
+    finally {
+      _isSaving = false;
     }
   }
 
@@ -384,6 +407,16 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
 
   @override
   bool get wantKeepAlive => true;
+}
+
+// Compute a lightweight signature to detect duplicate saves for the same bytes
+String _signatureForBytes(Uint8List bytes) {
+  final int len = bytes.length;
+  if (len == 0) return '0:';
+  final int take = len < 128 ? len : 64;
+  final String head = base64Encode(bytes.sublist(0, take));
+  final String tail = base64Encode(bytes.sublist(len - take, len));
+  return '$len:$head:$tail';
 }
 
 class _InstructionCard extends StatelessWidget {

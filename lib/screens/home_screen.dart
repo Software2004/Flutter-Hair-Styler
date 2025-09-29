@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 BottomNavigationBarItem(
                   icon: Icon(Icons.auto_awesome_outlined),
                   activeIcon: Icon(Icons.auto_awesome),
-                  label: 'AI Recommendations',
+                  label: 'AI Styler',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.folder_open_outlined),
