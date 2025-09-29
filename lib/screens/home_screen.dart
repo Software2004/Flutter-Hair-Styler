@@ -54,64 +54,120 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: PageStorage(
-        bucket: _bucket,
-        child: IndexedStack(index: _currentIndex, children: _tabs),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.background,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    if (!isLandscape) {
+      return Scaffold(
+        body: PageStorage(
+          bucket: _bucket,
+          child: IndexedStack(index: _currentIndex, children: _tabs),
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.background,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            ],
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (i) => setState(() => _currentIndex = i),
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Theme.of(context).colorScheme.primary,
+              unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              showUnselectedLabels: true,
+              selectedLabelStyle: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w600, height: 1.5),
+              unselectedLabelStyle: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(fontWeight: FontWeight.w400, height: 1.5),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.auto_awesome_outlined),
+                  activeIcon: Icon(Icons.auto_awesome),
+                  label: 'AI Recommendations',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.folder_open_outlined),
+                  activeIcon: Icon(Icons.folder),
+                  label: 'My Styles',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.account_circle_outlined),
+                  activeIcon: Icon(Icons.account_circle),
+                  label: 'Account',
+                ),
+              ],
+            ),
           ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            showUnselectedLabels: true,
-            selectedLabelStyle: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(fontWeight: FontWeight.w600, height: 1.5),
-            unselectedLabelStyle: Theme.of(context).textTheme.labelSmall
-                ?.copyWith(fontWeight: FontWeight.w400, height: 1.5),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home),
-                label: 'Home',
+        ),
+      );
+    }
+
+    // Landscape with a left-side NavigationRail
+    return Scaffold(
+      body: SafeArea(
+        child: Row(
+          children: [
+            NavigationRail(
+              backgroundColor: Theme.of(context).colorScheme.background,
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (i) => setState(() => _currentIndex = i),
+              selectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.primary,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.auto_awesome_outlined),
-                activeIcon: Icon(Icons.auto_awesome),
-                label: 'AI Recommendations',
+              unselectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.folder_open_outlined),
-                activeIcon: Icon(Icons.folder),
-                label: 'My Styles',
+              indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+              labelType: NavigationRailLabelType.all,
+              groupAlignment: 0.0,
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: Text('Home'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.auto_awesome_outlined),
+                  selectedIcon: Icon(Icons.auto_awesome),
+                  label: Text('AI'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.folder_open_outlined),
+                  selectedIcon: Icon(Icons.folder),
+                  label: Text('My Styles'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.account_circle_outlined),
+                  selectedIcon: Icon(Icons.account_circle),
+                  label: Text('Account'),
+                ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: PageStorage(
+                bucket: _bucket,
+                child: IndexedStack(index: _currentIndex, children: _tabs),
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.account_circle_outlined),
-                activeIcon: Icon(Icons.account_circle),
-                label: 'Account',
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

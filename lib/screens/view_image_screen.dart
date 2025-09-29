@@ -65,6 +65,7 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -97,7 +98,7 @@ class _ViewImageScreenState extends State<ViewImageScreen> {
             ),
           ),
           Positioned(
-            bottom: 24,
+            bottom: 16 + bottomInset,
             left: 0,
             right: 0,
             child: Row(

@@ -1,15 +1,18 @@
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hair_styler/screens/login_screen.dart';
+import 'package:flutter_hair_styler/screens/home_screen.dart';
 import 'package:flutter_hair_styler/screens/privacy_policy_screen.dart';
 import 'package:flutter_hair_styler/screens/subscription_plan.dart';
 import 'package:flutter_hair_styler/screens/terms_of_service_screen.dart';
 import 'package:flutter_hair_styler/widgets/outlined_primary_button.dart';
 import 'package:flutter_hair_styler/widgets/primary_button.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../models/user_data.dart';
+import 'auth_service.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -53,12 +56,100 @@ class _AccountScreenState extends State<AccountScreen>
     }
   }
 
+  Future<void> _showLogoutBottomSheet(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.logout,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Logout',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Are you sure you want to logout?',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.7),
+                      ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedPrimaryButton(
+                        label: 'Cancel',
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: 'Logout',
+                        onPressed: () async {
+                          try {
+                            await AuthService.signOut();
+                            if (!mounted) return;
+                            Navigator.of(ctx).pop();
+                            // Navigate to Home after logout
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              HomeScreen.routeName,
+                              (route) => false,
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Logged out')),
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Logout failed: $e')),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final provider = context.watch<UserProvider?>();
     final credits = provider?.remainingCredits ?? 0;
     final plan = provider?.plan ?? SubscriptionPlanType.free;
+    final bool isLoggedIn = FirebaseAuth.instance.currentUser != null;
     String tierLabel = switch (plan) {
       SubscriptionPlanType.free => 'Free User',
       SubscriptionPlanType.standard => 'Standard',
@@ -164,12 +255,17 @@ class _AccountScreenState extends State<AccountScreen>
                 );
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             OutlinedPrimaryButton(
-              label: 'Login / Register',
-              icon: Icons.login,
-              onPressed: () {
-                Navigator.pushNamed(context, LoginScreen.routeName);
+              label: isLoggedIn ? 'Logout' : 'Login / Register',
+              icon: isLoggedIn ? Icons.logout : Icons.login,
+              onPressed: () async {
+                if (isLoggedIn) {
+                  await _showLogoutBottomSheet(context);
+                } else {
+                  if (!mounted) return;
+                  Navigator.pushNamed(context, LoginScreen.routeName);
+                }
               },
             ),
             const SizedBox(height: 32),

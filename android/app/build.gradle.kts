@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.flutter_hair_styler"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -27,8 +27,8 @@ android {
         applicationId = "com.example.flutter_hair_styler"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 26
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         // Keep only required locales to reduce resources size
@@ -79,6 +79,13 @@ android {
         }
         jniLibs {
             useLegacyPackaging = false
+        }
+    }
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core-ktx:1.13.1")
+            force("androidx.appcompat:appcompat:1.7.0")
+            force("com.google.android.material:material:1.12.0")
         }
     }
 }

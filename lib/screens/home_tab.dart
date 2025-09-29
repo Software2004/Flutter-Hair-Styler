@@ -262,72 +262,77 @@ class _HomeTabState extends State<HomeTab>
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: _currentTabGridHeight(context),
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: _categories.map((categoryName) {
-                      if (_loading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                  child: AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, _) {
+                      return IndexedStack(
+                        index: _tabController.index,
+                        children: _categories.map((categoryName) {
+                          if (_loading) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
 
-                      StyleCategory? matchingCategory;
-                      for (var cat in _categoriesData) {
-                        if (cat.name.toLowerCase() ==
-                            categoryName.toLowerCase()) {
-                          matchingCategory = cat;
-                          break;
-                        }
-                      }
+                          StyleCategory? matchingCategory;
+                          for (var cat in _categoriesData) {
+                            if (cat.name.toLowerCase() ==
+                                categoryName.toLowerCase()) {
+                              matchingCategory = cat;
+                              break;
+                            }
+                          }
 
-                      if (matchingCategory == null ||
-                          matchingCategory.styles.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.content_cut,
-                                size: 64,
-                                color: Colors.grey[400],
+                          if (matchingCategory == null ||
+                              matchingCategory.styles.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.content_cut,
+                                    size: 64,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No styles available for $categoryName',
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(color: Colors.grey[600]),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Please check if the assets are properly loaded',
+                                    style: Theme.of(context).textTheme.bodyMedium
+                                        ?.copyWith(color: Colors.grey[500]),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No styles available for $categoryName',
-                                style: Theme.of(context).textTheme.bodyLarge
-                                    ?.copyWith(color: Colors.grey[600]),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Please check if the assets are properly loaded',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: Colors.grey[500]),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        );
-                      }
+                            );
+                          }
 
-                      return Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 0.68,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                              ),
-                          itemCount: matchingCategory!.styles.length,
-                          itemBuilder: (context, index) {
-                            final item = matchingCategory!.styles[index];
-                            return _buildStyleCard(item);
-                          },
-                        ),
+                          return Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: GridView.builder(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 0.68,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                  ),
+                              itemCount: matchingCategory!.styles.length,
+                              itemBuilder: (context, index) {
+                                final item = matchingCategory!.styles[index];
+                                return _buildStyleCard(item);
+                              },
+                            ),
+                          );
+                        }).toList(),
                       );
-                    }).toList(),
+                    },
                   ),
                 ),
               ),
@@ -501,7 +506,7 @@ class _HomeTabState extends State<HomeTab>
                     item.name,
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

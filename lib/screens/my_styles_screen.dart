@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/saved_style.dart';
@@ -91,9 +92,7 @@ class _SortChips extends StatelessWidget {
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
 
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 }
@@ -152,7 +151,10 @@ class _StyleTile extends StatelessWidget {
                       ),
                       child: Text(
                         _timeAgo(item.dateSaved),
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ),
@@ -329,27 +331,12 @@ class _MyStylesScreenState extends State<MyStylesScreen>
           return;
         }
 
-        final result = await ImageGallerySaver.saveImage(
-          imageBytes,
-          quality: 90,
-          name:
-              "${style.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}",
-        );
+        await Gal.putImageBytes(imageBytes);
 
         if (!mounted) return;
-        if (result != null && result['isSuccess']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Image saved to gallery!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Failed to save image: ${result?['errorMessage'] ?? 'Unknown error'}',
-              ),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image saved to gallery!')),
+        );
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(
@@ -395,7 +382,7 @@ class _MyStylesScreenState extends State<MyStylesScreen>
       // await _store.deleteById(styleToDelete.id); // This line was causing issues, as _load() handles UI update
       // await _load(); // Let the stream update handle UI changes after deletion
       await _store.deleteById(styleToDelete.id); // Delete first
-       _load(); // Then reload and let the stream update the UI or update directly
+      _load(); // Then reload and let the stream update the UI or update directly
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -415,8 +402,10 @@ class _MyStylesScreenState extends State<MyStylesScreen>
     const double horizontalPadding = 16.0; // from SliverPadding
     const double crossSpacing = 16.0; // from grid delegate
     final double tileWidth =
-        (screenWidth - (horizontalPadding * 2) - crossSpacing * (crossAxisCount - 1)) /
-            crossAxisCount;
+        (screenWidth -
+            (horizontalPadding * 2) -
+            crossSpacing * (crossAxisCount - 1)) /
+        crossAxisCount;
     // Image is square (AspectRatio 1.0) + approx 56px for text/actions row and padding
     final double tileHeight = tileWidth + 56.0;
 
@@ -449,8 +438,9 @@ class _MyStylesScreenState extends State<MyStylesScreen>
                     children: [
                       Text(
                         'Saved Styles',
-                        style: textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(

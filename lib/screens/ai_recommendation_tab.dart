@@ -46,7 +46,6 @@ class _AIRecommendationTabState extends State<AIRecommendationTab>
   void initState() {
     super.initState();
     String apiKey = dotenv.env["GEMINI_API_KEY"] ?? "";
-    print("API KEY ->>" + apiKey);
     _gemini = GeminiService(apiKey);
   }
 
